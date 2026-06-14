@@ -21,3 +21,6 @@ kubeconfig
 
 # OS
 .DS_Store
+.serena/
+.claude/
+CLAUDE.MD
