@@ -1,0 +1,3 @@
+creation_rules:
+  - encrypted_regex: "^(data|stringData)$"
+    kms: "arn:aws:kms:eu-west-1:ACCOUNT_ID:alias/k8s-platform-sops"

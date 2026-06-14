@@ -1,0 +1,54 @@
+grafana:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.k8s.gaiaderma.com
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.k8s.gaiaderma.com
+  persistence:
+    enabled: true
+    size: 10Gi
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    nodeSelector:
+      node-role: platform
+    tolerations:
+      - key: node-role
+        value: platform
+        effect: NoSchedule
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    nodeSelector:
+      node-role: platform
+    tolerations:
+      - key: node-role
+        value: platform
+        effect: NoSchedule
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true

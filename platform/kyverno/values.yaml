@@ -1,0 +1,12 @@
+replicaCount: 1
+
+nodeSelector:
+  node-role: platform
+
+tolerations:
+  - key: node-role
+    value: platform
+    effect: NoSchedule
+
+serviceMonitor:
+  enabled: true

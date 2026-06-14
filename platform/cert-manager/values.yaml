@@ -1,0 +1,34 @@
+installCRDs: true
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/k8s-platform-dev-cert-manager
+
+nodeSelector:
+  node-role: platform
+
+tolerations:
+  - key: node-role
+    value: platform
+    effect: NoSchedule
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+
+webhook:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+cainjector:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule

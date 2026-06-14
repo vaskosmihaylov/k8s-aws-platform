@@ -1,0 +1,25 @@
+prometheus:
+  url: http://kube-prometheus-stack-prometheus.monitoring
+  port: 9090
+
+rules:
+  custom:
+    - seriesQuery: 'nginx_ingress_controller_requests{namespace!="",service!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          service:
+            resource: service
+      name:
+        matches: "^(.*)_total$"
+        as: "http_requests_per_second"
+      metricsQuery: 'rate(<<.Series>>{<<.LabelMatchers>>}[2m])'
+
+nodeSelector:
+  node-role: platform
+
+tolerations:
+  - key: node-role
+    value: platform
+    effect: NoSchedule
