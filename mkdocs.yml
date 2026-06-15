@@ -1,0 +1,88 @@
+site_name: k8s-aws-platform
+site_description: SciPlay interview-prep walkthrough of an EKS-based platform
+site_url: https://localhost:8000
+repo_url: https://github.com/vaskosmihaylov/k8s-aws-platform
+repo_name: vaskosmihaylov/k8s-aws-platform
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+    - search.share
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Walkthrough:
+      - 1. Project Shape: walkthrough/01-project-shape.md
+      - 2. Terraform Foundation: walkthrough/02-terraform.md
+      - 3. EKS Shape: walkthrough/03-eks.md
+      - 4. Argo CD: walkthrough/04-argocd.md
+      - 5. Platform Layer: walkthrough/05-platform.md
+      - 6. App Layer: walkthrough/06-app.md
+      - 7. CI/CD: walkthrough/07-cicd.md
+      - 8. Security Story: walkthrough/08-security.md
+  - Operating:
+      - On-Prem Comparison: operating/onprem-comparison.md
+      - Browser Access: operating/browser.md
+      - Node Troubleshooting: operating/troubleshooting.md
+  - AWS Setup Guide: aws-setup-guide.md

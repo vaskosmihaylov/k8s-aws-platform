@@ -22,6 +22,10 @@ kubeconfig
 # OS
 .DS_Store
 
+# MkDocs build output
+site/
+.docs-venv/
+
 # AI&MCP
 .serena/
 .claude/

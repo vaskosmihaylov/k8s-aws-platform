@@ -8,7 +8,8 @@ MCP_KUBECONFIG := $(HOME)/.kube/mcp-viewer.kubeconfig
 
 .PHONY: help bootstrap init plan apply destroy validate kubeconfig \
         port-forward-grafana port-forward-argocd port-forward-api \
-        load-test verify teardown
+        load-test verify teardown \
+        docs-install docs-serve docs-build
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -58,3 +59,14 @@ teardown: ## Full teardown: destroy all infrastructure
 	@echo "!!! FULL TEARDOWN - This destroys EVERYTHING !!!"
 	@read -p "Type 'DESTROY' to confirm: " confirm && [ "$$confirm" = "DESTROY" ] || exit 1
 	cd $(TF_ENV_DIR) && terraform destroy -auto-approve
+
+docs-install: ## Install MkDocs Material into a local venv (.docs-venv/)
+	python3 -m venv .docs-venv
+	.docs-venv/bin/pip install -r requirements-docs.txt
+	@echo "Activate with: source .docs-venv/bin/activate"
+
+docs-serve: ## Serve the walkthrough site at http://localhost:8000
+	@if [ -d .docs-venv ]; then .docs-venv/bin/mkdocs serve; else mkdocs serve; fi
+
+docs-build: ## Build the static site into ./site/
+	@if [ -d .docs-venv ]; then .docs-venv/bin/mkdocs build; else mkdocs build; fi
