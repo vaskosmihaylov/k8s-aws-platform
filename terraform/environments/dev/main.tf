@@ -91,6 +91,29 @@ module "irsa_external_dns" {
   tags = local.common_tags
 }
 
+module "irsa_ebs_csi" {
+  source = "../../modules/irsa"
+
+  role_name            = "${local.name_prefix}-dev-ebs-csi"
+  oidc_provider_url    = trimprefix(module.eks.cluster_oidc_issuer_url, "https://")
+  oidc_provider_arn    = module.eks.oidc_provider_arn
+  namespace            = "kube-system"
+  service_account_name = "ebs-csi-controller-sa"
+  policy_arns = {
+    ebs_csi = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  }
+  tags = local.common_tags
+}
+
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = "aws-ebs-csi-driver"
+  service_account_role_arn    = module.irsa_ebs_csi.role_arn
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  tags                        = local.common_tags
+}
+
 resource "aws_ecr_repository" "demo_api" {
   name                 = "${local.name_prefix}/demo-api"
   image_tag_mutability = "MUTABLE"
