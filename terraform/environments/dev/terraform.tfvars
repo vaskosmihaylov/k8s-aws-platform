@@ -14,4 +14,4 @@ github_org      = "vaskosmihaylov"
 github_repo     = "k8s-aws-platform"
 github_app_repo = "k8s-demo-api"
 
-route53_zone_name = "k8s.gaiaderma.com"
+route53_zone_name = "gaiaderma.com"

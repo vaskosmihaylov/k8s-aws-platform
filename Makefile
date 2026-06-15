@@ -4,6 +4,7 @@ TF_BOOTSTRAP_DIR := terraform/bootstrap
 TF_ENV_DIR := terraform/environments/dev
 CLUSTER_NAME := k8s-platform-dev
 AWS_REGION := eu-west-1
+MCP_KUBECONFIG := $(HOME)/.kube/mcp-viewer.kubeconfig
 
 .PHONY: help bootstrap init plan apply destroy validate kubeconfig \
         port-forward-grafana port-forward-argocd port-forward-api \
@@ -32,8 +33,11 @@ destroy: ## Destroy dev environment infrastructure
 validate: ## Run all pre-commit hooks
 	pre-commit run --all-files
 
-kubeconfig: ## Update kubeconfig for the dev cluster
-	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(AWS_REGION)
+kubeconfig: ## Write dev cluster kubeconfig to $(MCP_KUBECONFIG) for the read-only MCP
+	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(AWS_REGION) \
+		--kubeconfig $(MCP_KUBECONFIG)
+	@echo "Kubeconfig written to $(MCP_KUBECONFIG)"
+	@echo "Use: export KUBECONFIG=$(MCP_KUBECONFIG)  (or point kubectl/MCP at this file)"
 
 port-forward-grafana: ## Port-forward Grafana to localhost:3000
 	kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80

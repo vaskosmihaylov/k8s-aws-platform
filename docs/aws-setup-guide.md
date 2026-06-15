@@ -181,16 +181,39 @@ Key outputs you'll need:
 
 ## Step 9: Configure kubectl
 
+`make kubeconfig` writes to a dedicated file at `~/.kube/mcp-viewer.kubeconfig`
+(not the default `~/.kube/config`) so the read-only Kubernetes MCP can be pointed
+at it without colliding with any other clusters in your default kubeconfig.
+
 ```bash
 make kubeconfig
 
-# Verify
+# Verify (point kubectl at the new file)
+KUBECONFIG=~/.kube/mcp-viewer.kubeconfig kubectl get nodes
+
+# Or export it for the shell session
+export KUBECONFIG=~/.kube/mcp-viewer.kubeconfig
 kubectl get nodes
 ```
 
 You should see 2 nodes: one `t3.large` (platform) and one `t3.medium` (apps).
 
+Configure the Kubernetes MCP server to use this file (e.g. via the
+`KUBECONFIG` env var in its MCP config) so it has read-only cluster access.
+
 ## Step 10: DNS Delegation (Route 53)
+
+Route 53 hosts the **apex** `gaiaderma.com` zone (set via
+`route53_zone_name = "gaiaderma.com"` in `terraform.tfvars`). Hostinger
+delegates the whole domain to AWS by setting the registrar nameservers to the
+Route 53 NS records.
+
+> Note: an earlier version of this guide used a subdomain zone
+> (`k8s.gaiaderma.com`) and asked Hostinger to add NS records for the `k8s`
+> host. Hostinger's UI doesn't expose per-subdomain NS delegation for this
+> domain, so we host the apex in Route 53 instead. Any non-platform records
+> for `gaiaderma.com` (web, mail, etc.) would have to be recreated in Route
+> 53 — for this demo, the domain is used only for the platform.
 
 After `terraform apply`, get the NS records:
 
@@ -202,18 +225,22 @@ terraform output route53_name_servers
 Go to your domain registrar (Hostinger for gaiaderma.com):
 
 1. Log in to Hostinger control panel
-2. Go to **DNS / Nameservers** for gaiaderma.com
-3. Add an **NS record** for the subdomain `k8s`:
-   - For each name server from the output above, add:
-     - Host: `k8s`
-     - Points to: `ns-XXX.awsdns-XX.com.` (each NS from the output)
-4. Wait for DNS propagation (can take up to 48 hours, usually 15-30 minutes)
+2. Go to **Domains → gaiaderma.com → DNS / Nameservers**
+3. Switch to **Use custom nameservers** (or equivalent) and enter the four
+   `ns-XXX.awsdns-XX.*` values from `terraform output route53_name_servers`.
+4. Save. Wait for DNS propagation (usually 15–30 minutes, can take up to 48h).
+
+> Important: if you ran `terraform apply` previously with
+> `route53_zone_name = "k8s.gaiaderma.com"`, the next apply will destroy the
+> old subdomain zone and create a new apex zone with a **different** set of
+> four NS records. After the apply, fetch the new NS records and update
+> Hostinger again — the NS values you set the first time are now stale.
 
 Verify delegation:
 
 ```bash
-dig k8s.gaiaderma.com NS +short
-# Should return the Route 53 name servers
+dig gaiaderma.com NS +short
+# Should return the Route 53 name servers (ns-XXX.awsdns-XX.*)
 ```
 
 ## Step 11: Set Up GitHub Actions OIDC
