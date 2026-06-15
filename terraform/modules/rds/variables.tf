@@ -17,6 +17,11 @@ variable "db_password" {
   description = "Master password for the RDS instance."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.db_password) >= 8 && length(var.db_password) <= 128 && can(regex("^[!-~]+$", var.db_password)) && !can(regex("[/@\"]", var.db_password))
+    error_message = "db_password must be 8-128 printable ASCII characters and must not contain '/', '@', double quotes, or spaces."
+  }
 }
 
 variable "instance_class" {

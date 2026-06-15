@@ -94,7 +94,7 @@ Never commit the password to version control. Use an environment variable:
 
 ```bash
 # Generate a strong password
-export TF_VAR_db_password=$(openssl rand -base64 24)
+export TF_VAR_db_password=$(openssl rand -hex 24)
 echo "Save this password securely: ${TF_VAR_db_password}"
 ```
 
@@ -306,7 +306,7 @@ pre-commit run --all-files
 | Placeholder | Where to find the value | Files affected |
 |------------|------------------------|----------------|
 | `ACCOUNT_ID` | `aws sts get-caller-identity --query Account --output text` | 7 files (see Step 2) |
-| `REPLACE_ME` (db_password) | Generate with `openssl rand -base64 24` | `terraform.tfvars` |
+| `REPLACE_ME` (db_password) | Generate with `openssl rand -hex 24` | `terraform.tfvars` |
 | `0.0.0.0/0` (CIDR) | `curl -s https://checkip.amazonaws.com` then append `/32` | `terraform.tfvars` |
 | `vaskosmihaylov` (github_org) | Your GitHub username | `terraform.tfvars` |
 

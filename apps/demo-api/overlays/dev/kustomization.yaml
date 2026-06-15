@@ -10,5 +10,5 @@ patches:
   - path: patches/deployment-patch.yaml
 
 images:
-  - name: ACCOUNT_ID.dkr.ecr.eu-west-1.amazonaws.com/k8s-platform/demo-api
+  - name: 649822034735.dkr.ecr.eu-west-1.amazonaws.com/k8s-platform/demo-api
     newTag: dev-latest

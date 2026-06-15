@@ -71,8 +71,10 @@ module "irsa_cert_manager" {
   oidc_provider_arn    = module.eks.oidc_provider_arn
   namespace            = "cert-manager"
   service_account_name = "cert-manager"
-  policy_arns          = [aws_iam_policy.cert_manager.arn]
-  tags                 = local.common_tags
+  policy_arns = {
+    cert_manager = aws_iam_policy.cert_manager.arn
+  }
+  tags = local.common_tags
 }
 
 module "irsa_external_dns" {
@@ -83,8 +85,10 @@ module "irsa_external_dns" {
   oidc_provider_arn    = module.eks.oidc_provider_arn
   namespace            = "external-dns"
   service_account_name = "external-dns"
-  policy_arns          = [aws_iam_policy.external_dns.arn]
-  tags                 = local.common_tags
+  policy_arns = {
+    external_dns = aws_iam_policy.external_dns.arn
+  }
+  tags = local.common_tags
 }
 
 resource "aws_ecr_repository" "demo_api" {
@@ -171,7 +175,7 @@ resource "helm_release" "argocd" {
   create_namespace = true
 
   values = [
-    file("${path.module}/../../platform/argocd/values.yaml")
+    file("${path.module}/../../../platform/argocd/values.yaml")
   ]
 
   depends_on = [module.eks]

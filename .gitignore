@@ -21,6 +21,9 @@ kubeconfig
 
 # OS
 .DS_Store
+
+# AI&MCP
 .serena/
 .claude/
 CLAUDE.MD
+.claude.json

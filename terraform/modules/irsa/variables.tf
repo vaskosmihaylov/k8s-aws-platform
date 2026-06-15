@@ -24,9 +24,9 @@ variable "service_account_name" {
 }
 
 variable "policy_arns" {
-  description = "List of IAM policy ARNs to attach to the role."
-  type        = list(string)
-  default     = []
+  description = "Map of IAM policy ARNs to attach to the role, keyed by stable attachment names."
+  type        = map(string)
+  default     = {}
 }
 
 variable "tags" {

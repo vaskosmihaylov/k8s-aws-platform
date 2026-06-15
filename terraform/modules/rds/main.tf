@@ -53,10 +53,10 @@ resource "aws_db_instance" "this" {
   username = var.db_username
   password = var.db_password
 
-  allocated_storage  = var.allocated_storage
-  storage_type       = "gp3"
-  storage_encrypted  = true
-  kms_key_id         = var.kms_key_arn
+  allocated_storage = var.allocated_storage
+  storage_type      = "gp3"
+  storage_encrypted = true
+  kms_key_id        = var.kms_key_arn
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
   parameter_group_name   = aws_db_parameter_group.this.name

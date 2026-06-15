@@ -2,7 +2,7 @@ installCRDs: true
 
 serviceAccount:
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/k8s-platform-dev-cert-manager
+    eks.amazonaws.com/role-arn: arn:aws:iam::649822034735:role/k8s-platform-dev-cert-manager
 
 nodeSelector:
   node-role: platform

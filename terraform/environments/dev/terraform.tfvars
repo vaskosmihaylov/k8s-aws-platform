@@ -5,11 +5,10 @@ region       = "eu-west-1"
 environment  = "dev"
 cluster_name = "k8s-platform-dev"
 
-cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # Replace with your_ip/32
+cluster_endpoint_public_access_cidrs = ["62.73.125.212/32"]
 
 db_username = "dbadmin"
 db_name     = "appdb"
-db_password = "REPLACE_ME"
 
 github_org      = "vaskosmihaylov"
 github_repo     = "k8s-aws-platform"
