@@ -15,11 +15,17 @@ produced incorrect behavior before and are explicitly disallowed.
 
 ## Session Startup
 
-At the start of every new Codex session, before doing any other work, call:
+This project's Serena MCP server is started with `--context=claude-code --project-from-cwd`
+(see `.claude.json`), so project activation happens automatically at server startup and
+a `.claude/settings.json` SessionStart hook (`serena-hooks activate`) handles it further —
+no manual activation call exists or is needed. `activate_project` and
+`check_onboarding_performed` are not exposed as tools in this context; do not call them.
 
-1. `serena.activate_project`
-2. `serena.check_onboarding_performed`
-3. `serena.initial_instructions`
+At the start of every new session, before doing any other work, call:
+
+1. `serena.initial_instructions`
+2. If `list_memories` comes back empty (onboarding never ran for this project), call
+   `serena.onboarding` and follow its instructions.
 
 ## Mapping (use the right column, not the left)
 
