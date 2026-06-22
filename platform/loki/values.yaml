@@ -42,8 +42,20 @@ write:
 gateway:
   enabled: false
 
+# Memcached chunk/results caches default to ~9.8Gi memory requests each —
+# far too large for this 2-node t3.large/t3.medium demo cluster. Disabled
+# per the chart's own "resource-constrained environments" guidance; Loki
+# falls back to in-memory caching.
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Not `monitoring.lokiCanary` — that key doesn't exist on this chart and
+# silently does nothing. lokiCanary is top-level.
+lokiCanary:
+  enabled: false
+
 monitoring:
   selfMonitoring:
-    enabled: false
-  lokiCanary:
     enabled: false
