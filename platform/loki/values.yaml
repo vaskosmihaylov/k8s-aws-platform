@@ -7,6 +7,8 @@ loki:
   limits_config:
     retention_period: 168h
 
+deploymentMode: SingleBinary
+
 singleBinary:
   replicas: 1
   nodeSelector:
@@ -18,6 +20,15 @@ singleBinary:
   persistence:
     enabled: true
     size: 10Gi
+
+# Zero out simple-scalable-mode replicas; chart's validate.yaml errors if
+# both singleBinary and read/write/backend have nonzero replicas.
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
 
 gateway:
   enabled: false
