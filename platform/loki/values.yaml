@@ -56,6 +56,13 @@ resultsCache:
 lokiCanary:
   enabled: false
 
+# Chart's validate.yaml fails with "Helm test requires the Loki Canary to be
+# enabled" when test.enabled (default true) and lokiCanary.enabled disagree.
+# We don't run `helm test` here (ArgoCD doesn't invoke it), so disable it
+# rather than re-enabling the canary we just turned off for capacity reasons.
+test:
+  enabled: false
+
 monitoring:
   selfMonitoring:
     enabled: false
