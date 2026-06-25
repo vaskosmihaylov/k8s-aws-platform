@@ -101,3 +101,24 @@ redisSecretInit:
     - key: node-role
       value: platform
       effect: NoSchedule
+
+# dex and notifications were the last two components without platform placement. On a heavy
+# upgrade their pods roll, can't tolerate the platform taint, and land on the full t3.medium
+# apps node ("Too many pods") -> stuck Pending -> the Deployment rollout never completes ->
+# the helm upgrade hits its wait deadline ("context deadline exceeded"). Same root cause as
+# redisSecretInit above; pinning them to the (near-empty) platform node fixes it.
+dex:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+notifications:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule

@@ -277,6 +277,12 @@ resource "helm_release" "argocd" {
   namespace        = "argocd"
   create_namespace = true
 
+  # The umbrella chart rolls many components; the default 300s wait is tight on this 2-node
+  # cluster and has expired ("context deadline exceeded") during past upgrades. The real fix is
+  # platform placement for every component (see platform/argocd/values.yaml), but give the rollout
+  # headroom too.
+  timeout = 600
+
   values = [
     file("${path.module}/../../../platform/argocd/values.yaml")
   ]
