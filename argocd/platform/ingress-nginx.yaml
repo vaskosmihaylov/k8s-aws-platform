@@ -22,9 +22,19 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
+  # caBundle is injected out-of-band by the admission-patch PostSync Job, not by the
+  # Helm chart. Without this, selfHeal sees the live caBundle as drift and reverts it,
+  # breaking the admission webhook (x509: certificate signed by unknown authority).
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: ingress-nginx-admission
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
