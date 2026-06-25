@@ -164,3 +164,25 @@ pick the reasonable interpretation and proceed — and say which interpretation
 you picked.
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+
+# Capability routing (skills / subagents / MCP / hooks)
+
+Full decision matrix: `.claude/rules/tooling-decisions.md` — read it when planning an
+investigation. Quick rules for this repo (infra YAML/HCL/Helm; user runs all kubectl manually):
+
+- **kubernetes-mcp-server**: never. Hand the user the exact `kubectl` command; interpret the
+  paste-back.
+- **Serena**: code only (Go in `k8s-demo-api`). This repo is config — use Read/Edit/Bash.
+- **context7 / terraform MCP**: before generating Helm values or `.tf`. Explicit user yes/no
+  before any terraform `apply`.
+- **Subagents / plugins**: only when asked, or for broad read-only fan-out. Don't spawn for a
+  single-threaded, manual-kubectl investigation — it re-derives context cold for no gain.
+- **Skills**: `/diagnose` for true cluster mysteries (skip when IaC already proves the cause);
+  `/security-review` after IAM/Helm/TF changes; `/handoff` at session end.
+
+# Project gotcha — ingress-nginx admission webhook
+
+The `ingress-nginx-admission` ValidatingWebhookConfiguration's `caBundle` is injected out-of-band by a
+PostSync certgen Job (gated on app health) and guarded by `ignoreDifferences` in
+`argocd/platform/ingress-nginx.yaml`. Never hand-delete the webhook, its Secret, or its Jobs — trigger
+an ArgoCD sync and let it recreate them. Hand-deleting them caused a multi-hour outage (2026-06-25).

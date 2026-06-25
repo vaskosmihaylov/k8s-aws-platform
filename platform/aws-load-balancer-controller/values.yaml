@@ -1,0 +1,26 @@
+# AWS Load Balancer Controller — provisions the NLB for the ingress-nginx Service
+# (which is annotated aws-load-balancer-type: external + nlb-target-type: ip, both of
+# which ONLY this controller can satisfy). IAM role is created in Terraform
+# (module.irsa_aws_lb_controller); the chart creates the ServiceAccount and we attach
+# the deterministic role ARN here, mirroring the cert-manager pattern.
+clusterName: k8s-platform-dev
+region: eu-west-1
+# vpcId is auto-discovered from the EC2 instance metadata / DescribeVpcs (the IAM policy
+# allows it). Pin it explicitly if IMDS is ever locked down.
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::649822034735:role/k8s-platform-dev-aws-lb-controller
+
+# Single replica is enough for a 2-node demo cluster; run 2+ (the chart default) for HA in prod.
+replicaCount: 1
+
+nodeSelector:
+  node-role: platform
+
+tolerations:
+  - key: node-role
+    value: platform
+    effect: NoSchedule

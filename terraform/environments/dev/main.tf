@@ -135,6 +135,32 @@ module "irsa_argocd_repo_server" {
   tags = local.common_tags
 }
 
+# AWS infra (IAM policy + IRSA role) for the AWS Load Balancer Controller lives here;
+# the controller's Helm chart is deployed via Argo CD (argocd/platform/aws-load-balancer-controller.yaml),
+# matching the cert-manager/external-dns split. The policy JSON is vendored verbatim from upstream
+# (kubernetes-sigs/aws-load-balancer-controller v3.4.0 docs/install/iam_policy.json) — re-pull it from
+# the matching git tag when bumping the chart version.
+resource "aws_iam_policy" "aws_lb_controller" {
+  name        = "${local.name_prefix}-dev-aws-lb-controller"
+  description = "Permissions for the AWS Load Balancer Controller to manage ELBv2 resources."
+  policy      = file("${path.module}/policies/aws-lb-controller-iam-policy.json")
+  tags        = local.common_tags
+}
+
+module "irsa_aws_lb_controller" {
+  source = "../../modules/irsa"
+
+  role_name            = "${local.name_prefix}-dev-aws-lb-controller"
+  oidc_provider_url    = trimprefix(module.eks.cluster_oidc_issuer_url, "https://")
+  oidc_provider_arn    = module.eks.oidc_provider_arn
+  namespace            = "kube-system"
+  service_account_name = "aws-load-balancer-controller"
+  policy_arns = {
+    aws_lb_controller = aws_iam_policy.aws_lb_controller.arn
+  }
+  tags = local.common_tags
+}
+
 resource "aws_eks_addon" "ebs_csi" {
   cluster_name                = module.eks.cluster_name
   addon_name                  = "aws-ebs-csi-driver"

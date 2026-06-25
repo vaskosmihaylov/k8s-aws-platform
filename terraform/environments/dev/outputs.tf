@@ -53,3 +53,8 @@ output "external_dns_role_arn" {
   description = "ARN of the IRSA role for external-dns."
   value       = module.irsa_external_dns.role_arn
 }
+
+output "aws_lb_controller_role_arn" {
+  description = "ARN of the IRSA role for the AWS Load Balancer Controller."
+  value       = module.irsa_aws_lb_controller.role_arn
+}
