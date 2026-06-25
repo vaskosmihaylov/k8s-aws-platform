@@ -53,7 +53,7 @@ repoServer:
     - name: custom-tools
       emptyDir: {}
   volumeMounts:
-    - mountPath: /usr/local/bin/ksops
+    - mountPath: /.config/kustomize/plugin/viaduct.ai/v1/ksops/ksops
       name: custom-tools
       subPath: ksops
     - mountPath: /usr/local/bin/kustomize
