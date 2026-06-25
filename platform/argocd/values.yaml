@@ -1,13 +1,18 @@
+global:
+  # argo-cd chart v6+ sets the server host from global.domain. The old
+  # server.ingress.hosts/tls list schema (v5) is ignored by v7.3.4, which is why
+  # the live ingress fell back to the chart default argocd.example.com.
+  domain: argocd.k8s.gaiaderma.com
+
 server:
   ingress:
     enabled: true
     ingressClassName: nginx
-    hosts:
-      - argocd.k8s.gaiaderma.com
-    tls:
-      - secretName: argocd-server-tls
-        hosts:
-          - argocd.k8s.gaiaderma.com
+    tls: true
+    annotations:
+      # start on staging to avoid Let's Encrypt prod rate limits; flip to -prod once it issues
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
 
   nodeSelector:
     node-role: platform
@@ -25,6 +30,10 @@ controller:
       effect: NoSchedule
 
 configs:
+  params:
+    # Run argocd-server in HTTP mode; ingress-nginx terminates TLS with the
+    # cert-manager cert. Avoids double-TLS 502s / redirect loops behind nginx.
+    server.insecure: true
   cm:
     # Required for KSOPS: it's a kustomize exec plugin, both flags are needed
     # for the repo-server to invoke it during manifest generation.
@@ -74,6 +83,18 @@ applicationSet:
       effect: NoSchedule
 
 redis:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+# The redis-secret-init pre-upgrade hook Job is the one piece not covered by the
+# per-component blocks above. Without a platform toleration it can't land on the
+# tainted platform node, and the full apps node rejects it ("Too many pods"), so
+# the hook stays Pending, times out, and aborts the whole helm upgrade.
+redisSecretInit:
   nodeSelector:
     node-role: platform
   tolerations:
