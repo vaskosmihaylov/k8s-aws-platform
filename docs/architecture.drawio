@@ -183,7 +183,7 @@
         <mxCell id="kps2" value="kube-prometheus-stack&#xa;(Prom + Grafana + AM)" parent="1" style="rounded=1;fillColor=#E1F5FE;strokeColor=#0277BD;fontSize=10;" vertex="1">
           <mxGeometry x="200" y="480" width="170" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="loki2" value="loki&#xa;⚠ values bug — sync error" parent="1" style="rounded=1;fillColor=#FFEBEE;strokeColor=#C62828;fontSize=10;fontStyle=1;" vertex="1">
+        <mxCell id="loki2" value="loki" parent="1" style="rounded=1;fillColor=#E1F5FE;strokeColor=#0277BD;fontSize=10;" vertex="1">
           <mxGeometry x="510" y="480" width="170" height="40" as="geometry" />
         </mxCell>
         <mxCell id="w3lbl" value="Wave 3" parent="1" style="text;html=1;fontSize=14;fontStyle=1;align=center;" vertex="1">

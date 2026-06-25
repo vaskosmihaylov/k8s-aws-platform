@@ -14,6 +14,15 @@ module "kms_rds" {
   tags        = local.common_tags
 }
 
+# Alias name must exactly match the `kms:` field in .sops.yaml at the repo root.
+module "kms_sops" {
+  source = "../../modules/kms"
+
+  alias_name  = "k8s-platform-sops"
+  description = "KMS key for SOPS-encrypted secrets, decrypted by Argo CD's KSOPS repo-server plugin."
+  tags        = local.common_tags
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -105,6 +114,27 @@ module "irsa_ebs_csi" {
   tags = local.common_tags
 }
 
+resource "aws_iam_policy" "argocd_repo_server_kms" {
+  name        = "${local.name_prefix}-dev-argocd-repo-server-kms"
+  description = "Allows Argo CD's repo-server to decrypt SOPS-encrypted secrets via KSOPS."
+  policy      = data.aws_iam_policy_document.argocd_repo_server_kms.json
+  tags        = local.common_tags
+}
+
+module "irsa_argocd_repo_server" {
+  source = "../../modules/irsa"
+
+  role_name            = "${local.name_prefix}-dev-argocd-repo-server"
+  oidc_provider_url    = trimprefix(module.eks.cluster_oidc_issuer_url, "https://")
+  oidc_provider_arn    = module.eks.oidc_provider_arn
+  namespace            = "argocd"
+  service_account_name = "argocd-repo-server"
+  policy_arns = {
+    kms_decrypt = aws_iam_policy.argocd_repo_server_kms.arn
+  }
+  tags = local.common_tags
+}
+
 resource "aws_eks_addon" "ebs_csi" {
   cluster_name                = module.eks.cluster_name
   addon_name                  = "aws-ebs-csi-driver"
@@ -112,6 +142,30 @@ resource "aws_eks_addon" "ebs_csi" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   tags                        = local.common_tags
+}
+
+# EKS 1.31 ships with no CSI driver and no default StorageClass, so PVCs hang
+# forever without one. This was originally created by a manual `kubectl apply`
+# post-bootstrap; now managed here (imported, not recreated).
+resource "kubernetes_storage_class_v1" "gp3" {
+  metadata {
+    name = "gp3"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+
+  storage_provisioner    = "ebs.csi.aws.com"
+  reclaim_policy         = "Delete"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+
+  parameters = {
+    type      = "gp3"
+    encrypted = "true"
+  }
+
+  depends_on = [aws_eks_addon.ebs_csi]
 }
 
 resource "aws_ecr_repository" "demo_api" {
@@ -200,6 +254,13 @@ resource "helm_release" "argocd" {
   values = [
     file("${path.module}/../../../platform/argocd/values.yaml")
   ]
+
+  # IRSA role ARN is only known after the module above runs, so it's injected
+  # here rather than hardcoded into the static values.yaml file.
+  set {
+    name  = "repoServer.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = module.irsa_argocd_repo_server.role_arn
+  }
 
   depends_on = [module.eks]
 }

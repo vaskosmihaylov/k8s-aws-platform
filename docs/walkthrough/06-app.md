@@ -1,6 +1,8 @@
 # 6. App Layer
 
 `apps/demo-api/` is the canonical "good citizen" app config — Kustomize base + dev/prod overlays.
+The app itself lives in a separate repo, `k8s-demo-api` — minimal CRUD over Postgres, Go stdlib
+`net/http` + `jackc/pgx/v5`, no framework, built TDD (vertical slices: one test, one impl, repeat).
 
 ## Layout
 
@@ -15,11 +17,57 @@ apps/demo-api/
 │   │                        # allow demo-api -> RDS, Prometheus, DNS
 │   ├── pdb.yaml             # minAvailable: 1
 │   ├── serviceaccount.yaml  # automountServiceAccountToken: false
+│   ├── podmonitor.yaml      # see Observability below
 │   └── kustomization.yaml
 └── overlays/
-    ├── dev/    # replicas=1, LOG_LEVEL=debug, image tag patched by CI
-    └── prod/   # replicas=3, LOG_LEVEL=info, topology spread by zone
+    ├── dev/    # replicas=1, LOG_LEVEL=debug (via ConfigMap), image tag patched by CI
+    │           # + ingress.yaml, secret.enc.yaml, ksops-generator.yaml (see Secrets below)
+    └── prod/   # replicas=3, LOG_LEVEL=info (via ConfigMap), topology spread by zone
+                # + ingress.yaml, secret.enc.yaml, ksops-generator.yaml (same pattern)
 ```
+
+## Secrets — SOPS + AWS KMS via KSOPS {#secrets}
+
+The DB connection string (`DATABASE_URL`, Secret `demo-api-db`, key `url`) is delivered as a
+**SOPS-encrypted manifest**, decrypted in-cluster by Argo CD's repo-server at manifest-generation
+time — the plaintext secret never sits unencrypted in git or on disk outside a throwaway `/tmp` file
+during creation.
+
+Per overlay:
+
+- `secret.enc.yaml` — a normal `Secret` manifest, `stringData.url` encrypted by `sops --encrypt`
+  against `.sops.yaml`'s `creation_rules` (KMS key alias `k8s-platform-sops`).
+- `ksops-generator.yaml` (`apiVersion: viaduct.ai/v1, kind: ksops`) — tells Kustomize's KSOPS
+  exec-plugin which encrypted files to decrypt and emit as generated resources.
+- Both overlay `kustomization.yaml`s reference the generator via `generators:`.
+
+What makes this work cluster-side (all in `platform/argocd/values.yaml` +
+`terraform/environments/dev/main.tf`, applied via Terraform since [Argo CD itself is
+Terraform-managed](02-terraform.md)):
+
+- `configs.cm.kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"` on the Argo CD
+  `argocd-cm` ConfigMap — KSOPS is a kustomize *exec* plugin, both flags are required.
+- A `viaductoss/ksops` init container on `repoServer` that drops the `ksops`/`kustomize` binaries
+  into a shared `emptyDir` the main container's `PATH` picks up.
+- `module "kms_sops"` (the KMS key) + `module "irsa_argocd_repo_server"` (grants
+  `kms:Decrypt`/`DescribeKey` on it) — the repo-server's ServiceAccount is annotated with the
+  resulting role ARN so it can actually call KMS at decrypt time.
+
+!!! question "Why not Vault / External Secrets Operator?"
+    SOPS + KMS covers the "secrets in git" threat model with zero extra in-cluster operator and no
+    new attack surface — ciphertext is safe to commit, and decrypt requires the same KMS access a
+    repo-server already needs for other things. Vault/ESO add real value (dynamic, rotated DB
+    creds) but are ops overhead this demo's footprint doesn't justify. See [Security
+    Story](08-security.md).
+
+## Observability — PodMonitor {#observability}
+
+`apps/demo-api/base/podmonitor.yaml` scrapes `/metrics` every 30s. The label
+`release: kube-prometheus-stack` is **required** — it's not a chart default, it's what the live
+`Prometheus` CR's `podMonitorSelector.matchLabels` actually requires (confirmed against the live
+object, not assumed from chart docs). Without it, Prometheus silently never discovers the pod.
+This metric (`http_requests_total`) is what backs the second prometheus-adapter rule described in
+[Platform Layer](05-platform.md#prometheus-adapter).
 
 ## Interview probes
 

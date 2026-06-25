@@ -77,6 +77,22 @@ metadata:
 
 **This is the AWS pattern that has no clean on-prem equivalent** — see [On-Prem Comparison](../operating/onprem-comparison.md).
 
+### KSOPS: a KMS key + IRSA for the ArgoCD repo-server itself (2026-06-22)
+
+Same factory, new caller — `module "irsa_argocd_repo_server"` grants `kms:Decrypt`/`kms:DescribeKey`
+on a dedicated `module "kms_sops"` key (alias `k8s-platform-sops`, the same one referenced in
+`.sops.yaml`'s `creation_rules`). Unlike the other IRSA roles above, this one is for a **platform
+control-plane component**, not an app — it's how Argo CD's own repo-server decrypts SOPS-encrypted
+Secret manifests via the KSOPS kustomize exec plugin before generating the final manifest. See
+[App Layer → Secrets](06-app.md#secrets) for the end-to-end flow.
+
+### `gp3` default StorageClass — now in Terraform, not a manual step
+
+`kubernetes_storage_class_v1.gp3` in `terraform/environments/dev/main.tf` (the `hashicorp/kubernetes`
+provider, already configured for `helm_release.argocd`). Originally created by hand post-bootstrap;
+imported (`terraform import kubernetes_storage_class_v1.gp3 gp3`) then brought under management —
+`terraform plan` now shows no drift for it.
+
 ## Route 53 — the apex-vs-subdomain story
 
 The original plan was to delegate the `k8s.gaiaderma.com` *subdomain* and leave the rest on Hostinger.

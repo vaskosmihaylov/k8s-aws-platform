@@ -24,6 +24,12 @@ controller:
       value: platform
       effect: NoSchedule
 
+configs:
+  cm:
+    # Required for KSOPS: it's a kustomize exec plugin, both flags are needed
+    # for the repo-server to invoke it during manifest generation.
+    kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"
+
 repoServer:
   nodeSelector:
     node-role: platform

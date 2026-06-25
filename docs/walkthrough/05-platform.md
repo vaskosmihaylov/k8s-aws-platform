@@ -19,8 +19,10 @@ Each platform component is upstream Helm chart + a `values.yaml` in `platform/<c
 - **CRDs installed** by the chart (`installCRDs=true`)
 - **DNS-01 over HTTP-01** because we want wildcard certs and DNS-01 doesn't require the LB to be publicly reachable during issuance
 
-!!! warning "Known follow-up — dual source block"
-    `argocd/platform/cert-manager.yaml` has **both** a singular `source:` (no `$values`) and a plural `sources:` (with `$values`). Currently Healthy because plural wins, but the spec is invalid. If singular ever wins, cert-manager installs with default Helm values (no IRSA → DNS-01 broken). Delete the singular `source:` block.
+!!! success "Fixed (2026-06-22) — dual source block"
+    `argocd/platform/cert-manager.yaml` had **both** a singular `source:` (no `$values`) and a plural `sources:` (with `$values`) — an invalid spec where the plural happened to win, but if the singular ever won, cert-manager would install with default Helm values (no IRSA → DNS-01 broken). The stray singular block has been removed; committed and verified live (root reconciled, `cert-manager` Application Healthy with only the plural block in spec).
+
+- **ClusterIssuers**: two issuers (`letsencrypt-staging`, `letsencrypt-prod`) are embedded directly in `platform/cert-manager/values.yaml` via `extraObjects` — both DNS-01 over Route53, scoped to the same `hostedZoneID` the IRSA policy grants. demo-api's Ingress uses the staging issuer first (avoids Let's Encrypt rate limits) before switching to prod.
 
 ## kube-prometheus-stack
 
@@ -41,19 +43,46 @@ Each platform component is upstream Helm chart + a `values.yaml` in `platform/<c
 
 ## Loki {#loki}
 
-Currently **broken**. Sync error from Argo CD:
+**Fixed (2026-06-22).** This was a genuinely instructive bug: the `grafana/loki` chart's
+`templates/validate.yaml` enforces several cross-field invariants, but `helm template` (what Argo CD's
+manifest generation runs) only surfaces **one validation error per render** — fixing it just reveals
+the next one. It took 4 sequential rounds to get from `Unknown` sync to `Synced`/`Healthy`.
 
-```
-Failed to load target state: failed to generate manifest for source 1 of 2: 
-Error: execution error at (loki/templates/validate.yaml:31:4): 
-You have more than zero replicas configured for both the single binary and 
-simple scalable targets. If this was intentional change the deploymentMode 
-to the transitional 'SingleBinary<->SimpleScalable' mode
-```
+1. **Deployment mode conflict.** First sync error:
 
-`platform/loki/values.yaml` is setting replicas on both `singleBinary` and `read/write/backend` (the simple-scalable path). Chart 6.6.4 rejects that.
+   ```
+   Failed to load target state: failed to generate manifest for source 1 of 2:
+   Error: execution error at (loki/templates/validate.yaml:31:4):
+   You have more than zero replicas configured for both the single binary and
+   simple scalable targets. If this was intentional change the deploymentMode
+   to the transitional 'SingleBinary<->SimpleScalable' mode
+   ```
 
-The Application shows `Healthy` because there are no pods to be unhealthy — Argo CD just can't render the chart, so nothing got deployed. `verify-platform.sh` doesn't catch it because the script's loki check is one of the false-PASS cases.
+   `platform/loki/values.yaml` was setting replicas on both `singleBinary` and `read/write/backend`
+   (the simple-scalable path) — chart 6.6.4 rejects that. Fix: `deploymentMode: SingleBinary` +
+   zeroed `backend.replicas`/`read.replicas`/`write.replicas`.
+
+2. **Missing schema config.** Chart 6.6.4 has no default `schemaConfig` — it's mandatory. Added
+   `loki.schemaConfig` (`store: tsdb`, `object_store: filesystem`, `schema: v13`).
+
+3. **Oversized default caches.** `chunksCache`/`resultsCache` default to Memcached subcharts
+   requesting ~9.8Gi memory **each** — wildly oversized for this 2-node demo cluster, caused
+   `FailedScheduling` on both nodes. Disabled both (`chunksCache.enabled: false`,
+   `resultsCache.enabled: false`, top-level keys, not nested under `loki:`) — this is the chart's
+   own documented recommendation for resource-constrained environments.
+
+4. **Canary/test coupling.** `lokiCanary.enabled: false` is also a top-level key —
+   `monitoring.lokiCanary.enabled` doesn't exist and silently no-ops. Once the canary is disabled,
+   `test.enabled: false` is also required: the chart's `validate.yaml` has
+   `if and (not lokiCanary.enabled) test.enabled`, and `test.enabled` defaults `true` assuming the
+   canary exists for `helm test` to probe. Argo CD never runs `helm test`, so disabling it is correct.
+
+Final state: `loki` Application `Synced`/`Healthy`, single `loki-0` pod `Running`/`Ready`.
+
+**Lesson:** the Application showed `Healthy` even while broken, because there were no pods to be
+unhealthy — Argo CD just couldn't render the chart, so nothing got deployed. `Unknown` sync status
+was the real signal, not `Health`. `verify-platform.sh`'s loki check was a false-PASS case for the
+same reason.
 
 !!! tip "Fix"
     Pick one mode. For demos, single-binary + filesystem storage:
@@ -92,6 +121,9 @@ rules:
 
 This serves the `v1beta1.custom.metrics.k8s.io` APIService — confirmed live and Available. Enables HPA v2 to scale on `Pods` or `Object` metrics, not just CPU/memory.
 
+!!! note "Second rule added for demo-api (2026-06-22)"
+    The original rule derives `http_requests_per_second` from the **nginx ingress** series (Service-resource type). demo-api's HPA wants a **Pods**-resource metric instead, so a second rule was added mapping the app's own `http_requests_total{namespace,pod}` (scraped via the [PodMonitor](06-app.md#observability) below) to `http_requests_per_second` on the `pod` resource, using the Pods-type aggregation pattern (`sum(rate(...)) by (<<.GroupBy>>)`). Both rules coexist; nginx's is unaffected.
+
 ## Kyverno
 
 3 ClusterPolicies in `platform/kyverno/policies/`:
@@ -102,3 +134,23 @@ This serves the `v1beta1.custom.metrics.k8s.io` APIService — confirmed live an
 
 !!! question "Why Kyverno over OPA / Gatekeeper?"
     The policy language is **YAML / JSON pattern matching**, not Rego. Lower-friction onboarding. Gatekeeper is more powerful for complex constraints but the Rego learning curve is real. Kyverno covers ~90% of K8s policy use cases.
+
+### Cleanup CronJob image fix (2026-06-22)
+
+Kyverno's chart ships 5 cleanup `CronJob`s (admission/cluster-admission/update-requests/ephemeral/
+cluster-ephemeral reports) plus 2 helm-hook Jobs, all defaulting to `bitnami/kubectl:1.28.5`.
+Bitnami deprecated its general Docker Hub catalog in August 2025, so every run hit
+`ImagePullBackOff` — and because these are CronJobs, that's not a one-time failure, it's a
+recurring one every 10 minutes, each spawning a fresh broken pod.
+
+Fix in `platform/kyverno/values.yaml`: override all 7 image refs to `bitnamilegacy/kubectl:1.28.5`
+(Bitnami's relocated legacy registry — a drop-in replacement that still ships bash, which the
+cleanup script needs; `registry.k8s.io/kubectl` is distroless/no-shell and would break it).
+Verified via `helm template`.
+
+!!! warning "Live cluster note (2026-06-22)"
+    Before this fix was pushed, the broken CronJobs filled the `apps` node's pod-capacity limit
+    (17 pods on a `t3.medium`, ENI-bound) by continuously respawning `ImagePullBackOff` pods —
+    blocking an unrelated `helm_release.argocd` Terraform apply's pre-upgrade hook from
+    scheduling. All 5 CronJobs were **suspended live** as a stopgap. They need to be resumed
+    once this fix is pushed and synced.

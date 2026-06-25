@@ -60,7 +60,7 @@ Pre-loaded dashboards:
 - **Kubernetes / Pod** — resource use per pod
 - **Prometheus stats** — scrape success, ingestion rate
 
-Data sources: Prometheus (default) + Loki. Loki is currently the broken one — see [Platform Layer → Loki](../walkthrough/05-platform.md#loki).
+Data sources: Prometheus (default) + Loki. Both are Synced/Healthy — see [Platform Layer → Loki](../walkthrough/05-platform.md#loki) for the fix history.
 
 ## Prometheus
 

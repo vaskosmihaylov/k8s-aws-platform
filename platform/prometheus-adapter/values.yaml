@@ -15,6 +15,19 @@ rules:
         matches: "^(.*)_total$"
         as: "http_requests_per_second"
       metricsQuery: 'rate(<<.Series>>{<<.LabelMatchers>>}[2m])'
+    # Pods-resource metric for the demo-api HPA (apps/demo-api/base/hpa.yaml),
+    # scraped from the app's own http_requests_total via its PodMonitor.
+    - seriesQuery: 'http_requests_total{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_total$"
+        as: "http_requests_per_second"
+      metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)'
 
 nodeSelector:
   node-role: platform

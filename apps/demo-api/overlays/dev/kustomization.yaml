@@ -5,9 +5,18 @@ namespace: dev
 
 resources:
   - ../../base
+  - ingress.yaml
 
 patches:
   - path: patches/deployment-patch.yaml
+
+configMapGenerator:
+  - name: demo-api-config
+    literals:
+      - log-level=debug
+
+generators:
+  - ksops-generator.yaml
 
 images:
   - name: 649822034735.dkr.ecr.eu-west-1.amazonaws.com/k8s-platform/demo-api

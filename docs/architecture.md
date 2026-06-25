@@ -71,7 +71,7 @@ flowchart TB
         end
         subgraph wave_2["Wave 2"]
             kps[kube-prometheus-stack]
-            loki[loki *values bug*]
+            loki[loki]
         end
         subgraph wave_3["Wave 3"]
             padapter[prometheus-adapter]
@@ -87,9 +87,6 @@ flowchart TB
     repo -.pull every 3 min<br/>or on webhook.-> argocd
     argocd --> root
     root --> wave_m1 --> wave_0 --> wave_1 --> wave_2 --> wave_3 --> apps
-
-    classDef broken fill:#fee,stroke:#c33,color:#000
-    class loki broken
 ```
 
 The invariant: **Argo CD pulls from git, CI never pushes to the cluster**. CI can lose all its AWS creds and the cluster keeps reconciling. See [Argo CD](walkthrough/04-argocd.md) for the wave-by-wave detail.
@@ -132,8 +129,8 @@ flowchart LR
     cma["custom.metrics.k8s.io<br/>(APIService)"]
     hpa[HPA controller]
 
-    promtail[Promtail<br/>DaemonSet*]
-    loki[(Loki<br/>* currently broken)]
+    promtail[Promtail<br/>DaemonSet]
+    loki[(Loki)]
 
     grafana[Grafana]
     user([localhost:3000])

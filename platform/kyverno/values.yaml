@@ -10,3 +10,48 @@ tolerations:
 
 serviceMonitor:
   enabled: true
+
+# Bitnami deprecated its free Docker Hub catalog (Aug 2025); the chart's default
+# cleanup-job image bitnami/kubectl:1.28.5 now fails to pull. bitnamilegacy/kubectl
+# is the relocated, still-maintained equivalent (keeps bash, which these jobs'
+# command scripts require) — drop-in replacement for the 5 cleanup CronJobs below.
+cleanupJobs:
+  admissionReports:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: "1.28.5"
+  clusterAdmissionReports:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: "1.28.5"
+  updateRequests:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: "1.28.5"
+  ephemeralReports:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: "1.28.5"
+  clusterEphemeralReports:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: "1.28.5"
+
+# Same fix for the two hook Jobs (post-upgrade report cleanup, pre-delete webhook
+# cleanup) — they use bitnami/kubectl too but aren't covered by cleanupJobs.* above.
+policyReportsCleanup:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/kubectl
+    tag: "1.28.5"
+
+webhooksCleanup:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/kubectl
+    tag: "1.28.5"

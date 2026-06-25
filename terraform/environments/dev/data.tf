@@ -88,6 +88,15 @@ data "aws_iam_policy_document" "github_actions" {
   }
 }
 
+data "aws_iam_policy_document" "argocd_repo_server_kms" {
+  statement {
+    sid       = "DecryptSopsSecrets"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:DescribeKey"]
+    resources = [module.kms_sops.key_arn]
+  }
+}
+
 data "aws_iam_policy_document" "github_actions_assume_role" {
   statement {
     effect = "Allow"

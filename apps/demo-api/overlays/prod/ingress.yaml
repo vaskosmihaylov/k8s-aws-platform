@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-api
+  labels:
+    app.kubernetes.io/name: demo-api
+  annotations:
+    # Switch to letsencrypt-prod once a staging cert issues successfully —
+    # avoids burning Let's Encrypt's production rate limits while iterating.
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - demo.k8s.gaiaderma.com
+      secretName: demo-api-tls
+  rules:
+    - host: demo.k8s.gaiaderma.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-api
+                port:
+                  number: 80

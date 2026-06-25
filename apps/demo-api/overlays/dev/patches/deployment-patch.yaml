@@ -4,10 +4,3 @@ metadata:
   name: demo-api
 spec:
   replicas: 1
-  template:
-    spec:
-      containers:
-        - name: demo-api
-          env:
-            - name: LOG_LEVEL
-              value: debug
