@@ -5,8 +5,12 @@
 # the deterministic role ARN here, mirroring the cert-manager pattern.
 clusterName: k8s-platform-dev
 region: eu-west-1
-# vpcId is auto-discovered from the EC2 instance metadata / DescribeVpcs (the IAM policy
-# allows it). Pin it explicitly if IMDS is ever locked down.
+# vpcId is pinned, NOT auto-discovered: the controller runs in the pod network and EKS nodes
+# default to IMDSv2 with hop limit 1, so the pod's metadata call for the VPC ID times out
+# ("context deadline exceeded") and the controller crashloops. Setting it (with region) removes
+# the IMDS dependency entirely — cleaner and safer than raising the node hop limit to 2, which
+# would expose node IAM creds to every pod and undermine IRSA.
+vpcId: vpc-077701aa1e20dd037
 
 serviceAccount:
   create: true
