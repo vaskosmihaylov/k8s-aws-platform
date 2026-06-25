@@ -13,6 +13,13 @@ controller:
 
   admissionWebhooks:
     enabled: true
+    patch:
+      nodeSelector:
+        node-role: platform
+      tolerations:
+        - key: node-role
+          value: platform
+          effect: NoSchedule
 
   config:
     use-forwarded-headers: "true"
