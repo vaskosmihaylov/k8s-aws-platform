@@ -55,6 +55,37 @@ data "aws_iam_policy_document" "external_dns" {
 
 data "aws_iam_policy_document" "github_actions" {
   statement {
+    sid    = "TerraformStateBucket"
+    effect = "Allow"
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:ListBucket",
+    ]
+    resources = ["arn:aws:s3:::${local.terraform_state_bucket}"]
+  }
+
+  statement {
+    sid    = "TerraformStateObject"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+    ]
+    resources = ["arn:aws:s3:::${local.terraform_state_bucket}/${local.terraform_state_key}"]
+  }
+
+  statement {
+    sid    = "TerraformStateLockfile"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = ["arn:aws:s3:::${local.terraform_state_bucket}/${local.terraform_state_key}.tflock"]
+  }
+
+  statement {
     sid       = "ECRAuth"
     effect    = "Allow"
     actions   = ["ecr:GetAuthorizationToken"]
