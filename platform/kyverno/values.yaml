@@ -1,12 +1,36 @@
 replicaCount: 1
 
-nodeSelector:
-  node-role: platform
+admissionController:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
 
-tolerations:
-  - key: node-role
-    value: platform
-    effect: NoSchedule
+backgroundController:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+cleanupController:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
+
+reportsController:
+  nodeSelector:
+    node-role: platform
+  tolerations:
+    - key: node-role
+      value: platform
+      effect: NoSchedule
 
 serviceMonitor:
   enabled: true
