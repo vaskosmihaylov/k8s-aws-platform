@@ -4,6 +4,13 @@
 The app itself lives in a separate repo, `k8s-demo-api` — minimal CRUD over Postgres, Go stdlib
 `net/http` + `jackc/pgx/v5`, no framework, built TDD (vertical slices: one test, one impl, repeat).
 
+Final live state:
+
+- `demo-api-dev` and `demo-api-prod` are both `Synced`/`Healthy` in Argo CD.
+- `https://demo-dev.k8s.gaiaderma.com/readyz` returns HTTP 200.
+- `https://demo.k8s.gaiaderma.com/readyz` returns HTTP 200.
+- No app pods are Pending.
+
 ## Layout
 
 ```
@@ -110,11 +117,13 @@ Each namespace ships with:
 
 Explicit allow policies sit alongside the default-deny. Layered defense.
 
-Live state:
+Live state includes both namespaces with PSS labels, quotas, limits, and default-deny policies.
+The previous single-namespace snippet was an intermediate verification, not the final state:
 
 ```
 NAMESPACE   POD-SELECTOR   AGE
 dev         <none>         44m   (default-deny)
+prod        <none>         ...   (default-deny)
 ```
 
 ```
@@ -134,3 +143,26 @@ prod    pod-security.kubernetes.io/enforce=restricted
 | `app-default` | 100 | **yes** |
 
 If the cluster gets memory-pressured, kubelet evicts low-priority pods first. Platform stays up.
+
+## Relationship to the app repo
+
+The platform repo does not need to own Go source code to be complete. This repo owns the desired
+runtime shape: Deployment, Service, HPA, PodMonitor, PDB, NetworkPolicy, Ingress, ConfigMap, and
+encrypted Secret. The `k8s-demo-api` repo owns:
+
+- Go handlers and store implementation
+- unit/integration tests
+- Dockerfile
+- image build and ECR push workflow
+
+Future app work should happen in that repo and then update image tags here. That is a good separate
+chat/session boundary because the mental model is application development, not platform bootstrap.
+
+## Upstream docs to read
+
+- [Kustomize](https://kubectl.docs.kubernetes.io/guides/introduction/kustomize/) — base/overlay model.
+- [Kubernetes probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/) — liveness, readiness, and startup probes.
+- [Horizontal Pod Autoscaling](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) — HPA v2 behavior and scaling loop.
+- [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) — namespace isolation and explicit allows.
+- [Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) — baseline vs restricted policy profiles.
+- [SOPS](https://getsops.io/) and [KSOPS](https://github.com/viaduct-ai/kustomize-sops) — encrypted Kubernetes manifests rendered by Kustomize/Argo CD.

@@ -6,6 +6,12 @@ Three views of the same system. Start with the layered diagram for the AWS-and-c
 
 ![Layered architecture](architecture.png)
 
+!!! note "Static image caveat"
+    The PNG is a topology sketch, not an exhaustive inventory. The current live platform also includes
+    `aws-load-balancer-controller` and `external-dns`, and Route 53 is an apex `gaiaderma.com` hosted
+    zone that serves `*.k8s.gaiaderma.com` records. The Mermaid diagrams below are the more current
+    logical view.
+
 Source: `docs/architecture.drawio` — open in [app.diagrams.net](https://app.diagrams.net). The file has **three pages**:
 
 1. **k8s-aws-platform Architecture** (rendered above) — VPC + subnets + EKS node groups + AWS services.
@@ -21,6 +27,7 @@ flowchart LR
     user([Browser /<br/>API client])
     dns[(Route 53<br/>apex: gaiaderma.com)]
     extdns[external-dns<br/>IRSA]
+    lbc[AWS Load Balancer<br/>Controller + IRSA]
     cm[cert-manager<br/>IRSA]
     le[(Let's Encrypt<br/>ACME DNS-01)]
     nlb{{AWS NLB<br/>Network Load Balancer}}
@@ -39,6 +46,7 @@ flowchart LR
     pods -.uses.-> ebs
 
     extdns -.creates A records.-> dns
+    lbc -.reconciles Service<br/>to NLB.-> nlb
     cm -.DNS-01 challenge<br/>via Route 53.-> dns
     cm -.requests cert.-> le
     cm -.injects TLS Secret.-> ingress
@@ -52,7 +60,7 @@ Orange-equivalent nodes are AWS-managed (Route 53, NLB, RDS, EBS); the in-cluste
 flowchart TB
     dev([git push])
     repo[(github.com/vaskosmihaylov/<br/>k8s-aws-platform)]
-    ci[GitHub Actions<br/>terraform-apply on merge<br/>validate-manifests on PR]
+    ci[GitHub Actions<br/>terraform plan / manifest validation<br/>apply requires EKS API network path]
 
     subgraph cluster["EKS cluster"]
         direction TB
@@ -65,6 +73,7 @@ flowchart TB
         subgraph wave_0["Wave 0"]
             ns[namespaces<br/>PSS labels + quotas]
             cm[cert-manager + CRDs]
+            lbc[AWS Load Balancer Controller]
         end
         subgraph wave_1["Wave 1"]
             ingr[ingress-nginx]
@@ -72,6 +81,7 @@ flowchart TB
         subgraph wave_2["Wave 2"]
             kps[kube-prometheus-stack]
             loki[loki]
+            edns[external-dns]
         end
         subgraph wave_3["Wave 3"]
             padapter[prometheus-adapter]
@@ -116,6 +126,18 @@ sequenceDiagram
 ```
 
 This is the AWS killer feature for K8s — covered in [Terraform Foundation](walkthrough/02-terraform.md#irsa) and contrasted with on-prem alternatives in [On-Prem Comparison](operating/onprem-comparison.md).
+
+## Final health snapshot
+
+On 2026-07-07, every Argo CD Application was `Synced`/`Healthy`, no pods were Pending, external-dns
+reported records already up to date, and public HTTPS endpoints responded:
+
+| Host | Expected response |
+|---|---|
+| `argocd.k8s.gaiaderma.com` | HTTP 200 |
+| `demo-dev.k8s.gaiaderma.com/readyz` | HTTP 200 |
+| `demo.k8s.gaiaderma.com/readyz` | HTTP 200 |
+| `grafana.k8s.gaiaderma.com` | HTTP 302 to `/login` |
 
 ## Observability data flow
 

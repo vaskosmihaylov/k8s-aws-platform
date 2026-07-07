@@ -7,7 +7,7 @@ Two repositories. Strict separation between **platform/config** and **app source
 | Repo | Owns | Pace of change |
 |---|---|---|
 | `k8s-aws-platform` (this) | Terraform infra, Argo CD bootstrap, platform Helm values, app manifests (Kustomize), CI for infra + manifest validation | Slow, deliberate |
-| `k8s-demo-api` (planned, not yet created) | Go REST API source, Dockerfile, app CI that builds image, pushes ECR, updates image tag in this repo | Fast, every commit |
+| `k8s-demo-api` (separate private repo) | Go REST API source, Dockerfile, app CI that builds and tests the app, then pushes image tags to ECR | Fast, every commit |
 
 ## Why split
 
@@ -22,7 +22,7 @@ Three interview-defensible reasons:
 ```
 k8s-aws-platform/
 ├── terraform/
-│   ├── bootstrap/              # S3 + DynamoDB state backend (local state, prevent_destroy)
+│   ├── bootstrap/              # S3 state bucket (local state, prevent_destroy); legacy DynamoDB lock table still exists
 │   ├── modules/                # vpc, eks, rds, irsa, kms — thin wrappers
 │   └── environments/dev/       # actual stack: module calls + ECR + GH OIDC + Route 53 + ArgoCD
 ├── argocd/
@@ -40,4 +40,16 @@ k8s-aws-platform/
 └── Makefile
 ```
 
-See [AWS Setup Guide](../aws-setup-guide.md) for the 15-step bootstrap; you're through Step 14.
+See [AWS Setup Guide](../aws-setup-guide.md) for the bootstrap sequence. The current live environment
+has completed the platform, app, DNS, TLS, observability, and policy layers.
+
+## Why the app repo is separate work
+
+The platform is complete without editing `k8s-demo-api` in this repo. The app repo is a separate
+artifact with its own tests, Dockerfile, and build workflow. Treat future app changes as normal
+application delivery:
+
+1. Change and test Go code in `k8s-demo-api`.
+2. Build and push a new immutable image tag to ECR.
+3. Update this repo's Kustomize image tag through a PR.
+4. Let Argo CD pull the new config and roll the deployment.

@@ -796,6 +796,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1051,6 +1062,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1144,6 +1166,12 @@
 <td>SOPS + AWS KMS via KSOPS plugin in Argo CD repo-server</td>
 <td>Decrypt requires KMS access; pull-without-decrypt yields ciphertext</td>
 </tr>
+<tr>
+<td>11</td>
+<td><strong>Terraform access</strong></td>
+<td>Human admin access entry pinned; Terraform CI role has its own EKS access entry</td>
+<td>Local and CI callers no longer overwrite each other's cluster-admin principal</td>
+</tr>
 </tbody>
 </table>
 <h2 id="the-single-most-useful-interview-answer">The single most useful interview answer<a class="headerlink" href="#the-single-most-useful-interview-answer" title="Permanent link">&para;</a></h2>
@@ -1158,6 +1186,18 @@
 <li><strong>WAF / Shield Advanced</strong> — out of scope for the demo budget; would be the next layer for a real prod ingress.</li>
 <li><strong>Vault for in-cluster secrets</strong> — SOPS + KMS covers the secrets-in-git case. Vault would add dynamic database creds; useful but ops overhead not justified here.</li>
 <li><strong>Cluster autoscaler</strong> — not enabled. HPA + manually-sized node groups for the demo footprint.</li>
+<li><strong>Broad GitHub-hosted runner IP allowlisting</strong> — not enabled. Standard runner IPs are dynamic and
+  shared. Terraform applies that need the Kubernetes API should run locally, on a self-hosted runner
+  with private network access, or on a larger runner with static IP ranges.</li>
+</ul>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://kubernetes.io/docs/concepts/security/pod-security-standards/">Kubernetes Pod Security Standards</a> — <code>baseline</code> and <code>restricted</code>.</li>
+<li><a href="https://kubernetes.io/docs/concepts/security/pod-security-admission/">Pod Security Admission</a> — namespace label enforcement.</li>
+<li><a href="https://kubernetes.io/docs/concepts/services-networking/network-policies/">Kubernetes NetworkPolicy</a> — default-deny plus explicit allows.</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">Amazon EKS IRSA</a> — pod-to-AWS identity without node credentials.</li>
+<li><a href="https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services">GitHub OIDC with AWS</a> — short-lived CI credentials.</li>
+<li><a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners#ip-addresses">GitHub-hosted runner networking</a> — why shared runner IP ranges are not a strong allowlist boundary.</li>
 </ul>
 
 

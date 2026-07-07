@@ -719,6 +719,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets — SOPS + AWS KMS via KSOPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability — PodMonitor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#interview-probes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -795,6 +817,28 @@
     <span class="md-ellipsis">
       
         PriorityClasses
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relationship-to-the-app-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the app repo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1091,6 +1135,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets — SOPS + AWS KMS via KSOPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability — PodMonitor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#interview-probes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1173,6 +1239,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#relationship-to-the-app-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to the app repo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1194,7 +1282,16 @@
 
 
 <h1 id="6-app-layer">6. App Layer<a class="headerlink" href="#6-app-layer" title="Permanent link">&para;</a></h1>
-<p><code>apps/demo-api/</code> is the canonical "good citizen" app config — Kustomize base + dev/prod overlays.</p>
+<p><code>apps/demo-api/</code> is the canonical "good citizen" app config — Kustomize base + dev/prod overlays.
+The app itself lives in a separate repo, <code>k8s-demo-api</code> — minimal CRUD over Postgres, Go stdlib
+<code>net/http</code> + <code>jackc/pgx/v5</code>, no framework, built TDD (vertical slices: one test, one impl, repeat).</p>
+<p>Final live state:</p>
+<ul>
+<li><code>demo-api-dev</code> and <code>demo-api-prod</code> are both <code>Synced</code>/<code>Healthy</code> in Argo CD.</li>
+<li><code>https://demo-dev.k8s.gaiaderma.com/readyz</code> returns HTTP 200.</li>
+<li><code>https://demo.k8s.gaiaderma.com/readyz</code> returns HTTP 200.</li>
+<li>No app pods are Pending.</li>
+</ul>
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>apps/demo-api/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── base/
@@ -1206,11 +1303,54 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   │                        # allow demo-api -&gt; RDS, Prometheus, DNS
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── pdb.yaml             # minAvailable: 1
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── serviceaccount.yaml  # automountServiceAccountToken: false
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   └── kustomization.yaml
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└── overlays/
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    ├── dev/    # replicas=1, LOG_LEVEL=debug, image tag patched by CI
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    └── prod/   # replicas=3, LOG_LEVEL=info, topology spread by zone
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── podmonitor.yaml      # see Observability below
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   └── kustomization.yaml
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>└── overlays/
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ├── dev/    # replicas=1, LOG_LEVEL=debug (via ConfigMap), image tag patched by CI
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    │           # + ingress.yaml, secret.enc.yaml, ksops-generator.yaml (see Secrets below)
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    └── prod/   # replicas=3, LOG_LEVEL=info (via ConfigMap), topology spread by zone
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                # + ingress.yaml, secret.enc.yaml, ksops-generator.yaml (same pattern)
 </span></code></pre></div>
+<h2 id="secrets">Secrets — SOPS + AWS KMS via KSOPS<a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h2>
+<p>The DB connection string (<code>DATABASE_URL</code>, Secret <code>demo-api-db</code>, key <code>url</code>) is delivered as a
+<strong>SOPS-encrypted manifest</strong>, decrypted in-cluster by Argo CD's repo-server at manifest-generation
+time — the plaintext secret never sits unencrypted in git or on disk outside a throwaway <code>/tmp</code> file
+during creation.</p>
+<p>Per overlay:</p>
+<ul>
+<li><code>secret.enc.yaml</code> — a normal <code>Secret</code> manifest, <code>stringData.url</code> encrypted by <code>sops --encrypt</code>
+  against <code>.sops.yaml</code>'s <code>creation_rules</code> (KMS key alias <code>k8s-platform-sops</code>).</li>
+<li><code>ksops-generator.yaml</code> (<code>apiVersion: viaduct.ai/v1, kind: ksops</code>) — tells Kustomize's KSOPS
+  exec-plugin which encrypted files to decrypt and emit as generated resources.</li>
+<li>Both overlay <code>kustomization.yaml</code>s reference the generator via <code>generators:</code>.</li>
+</ul>
+<p>What makes this work cluster-side (all in <code>platform/argocd/values.yaml</code> +
+<code>terraform/environments/dev/main.tf</code>, applied via Terraform since <a href="../02-terraform/">Argo CD itself is
+Terraform-managed</a>):</p>
+<ul>
+<li><code>configs.cm.kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"</code> on the Argo CD
+  <code>argocd-cm</code> ConfigMap — KSOPS is a kustomize <em>exec</em> plugin, both flags are required.</li>
+<li>A <code>viaductoss/ksops</code> init container on <code>repoServer</code> that drops the <code>ksops</code>/<code>kustomize</code> binaries
+  into a shared <code>emptyDir</code> the main container's <code>PATH</code> picks up.</li>
+<li><code>module "kms_sops"</code> (the KMS key) + <code>module "irsa_argocd_repo_server"</code> (grants
+  <code>kms:Decrypt</code>/<code>DescribeKey</code> on it) — the repo-server's ServiceAccount is annotated with the
+  resulting role ARN so it can actually call KMS at decrypt time.</li>
+</ul>
+<div class="admonition question">
+<p class="admonition-title">Why not Vault / External Secrets Operator?</p>
+<p>SOPS + KMS covers the "secrets in git" threat model with zero extra in-cluster operator and no
+new attack surface — ciphertext is safe to commit, and decrypt requires the same KMS access a
+repo-server already needs for other things. Vault/ESO add real value (dynamic, rotated DB
+creds) but are ops overhead this demo's footprint doesn't justify. See <a href="../08-security/">Security
+Story</a>.</p>
+</div>
+<h2 id="observability">Observability — PodMonitor<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h2>
+<p><code>apps/demo-api/base/podmonitor.yaml</code> scrapes <code>/metrics</code> every 30s. The label
+<code>release: kube-prometheus-stack</code> is <strong>required</strong> — it's not a chart default, it's what the live
+<code>Prometheus</code> CR's <code>podMonitorSelector.matchLabels</code> actually requires (confirmed against the live
+object, not assumed from chart docs). Without it, Prometheus silently never discovers the pod.
+This metric (<code>http_requests_total</code>) is what backs the second prometheus-adapter rule described in
+<a href="../05-platform/#prometheus-adapter">Platform Layer</a>.</p>
 <h2 id="interview-probes">Interview probes<a class="headerlink" href="#interview-probes" title="Permanent link">&para;</a></h2>
 <h3 id="why-all-three-probe-types">"Why all three probe types?"<a class="headerlink" href="#why-all-three-probe-types" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1241,9 +1381,11 @@
 <li><strong><code>NetworkPolicy</code></strong> named <code>default-deny</code>, no pod selector (matches all pods) — confirmed live in <code>dev</code></li>
 </ul>
 <p>Explicit allow policies sit alongside the default-deny. Layered defense.</p>
-<p>Live state:</p>
+<p>Live state includes both namespaces with PSS labels, quotas, limits, and default-deny policies.
+The previous single-namespace snippet was an intermediate verification, not the final state:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>NAMESPACE   POD-SELECTOR   AGE
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>dev         &lt;none&gt;         44m   (default-deny)
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>prod        &lt;none&gt;         ...   (default-deny)
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>NAME    LABELS
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>dev     pod-security.kubernetes.io/enforce=baseline,
@@ -1274,6 +1416,27 @@
 </tbody>
 </table>
 <p>If the cluster gets memory-pressured, kubelet evicts low-priority pods first. Platform stays up.</p>
+<h2 id="relationship-to-the-app-repo">Relationship to the app repo<a class="headerlink" href="#relationship-to-the-app-repo" title="Permanent link">&para;</a></h2>
+<p>The platform repo does not need to own Go source code to be complete. This repo owns the desired
+runtime shape: Deployment, Service, HPA, PodMonitor, PDB, NetworkPolicy, Ingress, ConfigMap, and
+encrypted Secret. The <code>k8s-demo-api</code> repo owns:</p>
+<ul>
+<li>Go handlers and store implementation</li>
+<li>unit/integration tests</li>
+<li>Dockerfile</li>
+<li>image build and ECR push workflow</li>
+</ul>
+<p>Future app work should happen in that repo and then update image tags here. That is a good separate
+chat/session boundary because the mental model is application development, not platform bootstrap.</p>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://kubectl.docs.kubernetes.io/guides/introduction/kustomize/">Kustomize</a> — base/overlay model.</li>
+<li><a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/">Kubernetes probes</a> — liveness, readiness, and startup probes.</li>
+<li><a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/">Horizontal Pod Autoscaling</a> — HPA v2 behavior and scaling loop.</li>
+<li><a href="https://kubernetes.io/docs/concepts/services-networking/network-policies/">Kubernetes NetworkPolicy</a> — namespace isolation and explicit allows.</li>
+<li><a href="https://kubernetes.io/docs/concepts/security/pod-security-standards/">Pod Security Standards</a> — baseline vs restricted policy profiles.</li>
+<li><a href="https://getsops.io/">SOPS</a> and <a href="https://github.com/viaduct-ai/kustomize-sops">KSOPS</a> — encrypted Kubernetes manifests rendered by Kustomize/Argo CD.</li>
+</ul>
 
 
 

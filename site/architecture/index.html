@@ -510,6 +510,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#final-health-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Final health snapshot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#observability-data-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1082,6 +1093,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#final-health-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Final health snapshot
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#observability-data-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1116,6 +1138,13 @@
 <p>Three views of the same system. Start with the layered diagram for the AWS-and-cluster topology, then read the request path and IRSA flow to understand the dynamics.</p>
 <h2 id="layered-topology-existing-drawio">Layered topology (existing draw.io)<a class="headerlink" href="#layered-topology-existing-drawio" title="Permanent link">&para;</a></h2>
 <p><img alt="Layered architecture" src="../architecture.png" /></p>
+<div class="admonition note">
+<p class="admonition-title">Static image caveat</p>
+<p>The PNG is a topology sketch, not an exhaustive inventory. The current live platform also includes
+<code>aws-load-balancer-controller</code> and <code>external-dns</code>, and Route 53 is an apex <code>gaiaderma.com</code> hosted
+zone that serves <code>*.k8s.gaiaderma.com</code> records. The Mermaid diagrams below are the more current
+logical view.</p>
+</div>
 <p>Source: <code>docs/architecture.drawio</code> — open in <a href="https://app.diagrams.net">app.diagrams.net</a>. The file has <strong>three pages</strong>:</p>
 <ol>
 <li><strong>k8s-aws-platform Architecture</strong> (rendered above) — VPC + subnets + EKS node groups + AWS services.</li>
@@ -1128,6 +1157,7 @@
     user([Browser /&lt;br/&gt;API client])
     dns[(Route 53&lt;br/&gt;apex: gaiaderma.com)]
     extdns[external-dns&lt;br/&gt;IRSA]
+    lbc[AWS Load Balancer&lt;br/&gt;Controller + IRSA]
     cm[cert-manager&lt;br/&gt;IRSA]
     le[(Let's Encrypt&lt;br/&gt;ACME DNS-01)]
     nlb{{AWS NLB&lt;br/&gt;Network Load Balancer}}
@@ -1146,6 +1176,7 @@
     pods -.uses.-&gt; ebs
 
     extdns -.creates A records.-&gt; dns
+    lbc -.reconciles Service&lt;br/&gt;to NLB.-&gt; nlb
     cm -.DNS-01 challenge&lt;br/&gt;via Route 53.-&gt; dns
     cm -.requests cert.-&gt; le
     cm -.injects TLS Secret.-&gt; ingress</code></pre>
@@ -1154,7 +1185,7 @@
 <pre class="mermaid"><code>flowchart TB
     dev([git push])
     repo[(github.com/vaskosmihaylov/&lt;br/&gt;k8s-aws-platform)]
-    ci[GitHub Actions&lt;br/&gt;terraform-apply on merge&lt;br/&gt;validate-manifests on PR]
+    ci[GitHub Actions&lt;br/&gt;terraform plan / manifest validation&lt;br/&gt;apply requires EKS API network path]
 
     subgraph cluster["EKS cluster"]
         direction TB
@@ -1167,13 +1198,15 @@
         subgraph wave_0["Wave 0"]
             ns[namespaces&lt;br/&gt;PSS labels + quotas]
             cm[cert-manager + CRDs]
+            lbc[AWS Load Balancer Controller]
         end
         subgraph wave_1["Wave 1"]
             ingr[ingress-nginx]
         end
         subgraph wave_2["Wave 2"]
             kps[kube-prometheus-stack]
-            loki[loki *values bug*]
+            loki[loki]
+            edns[external-dns]
         end
         subgraph wave_3["Wave 3"]
             padapter[prometheus-adapter]
@@ -1188,10 +1221,7 @@
     repo -.PR.-&gt; ci
     repo -.pull every 3 min&lt;br/&gt;or on webhook.-&gt; argocd
     argocd --&gt; root
-    root --&gt; wave_m1 --&gt; wave_0 --&gt; wave_1 --&gt; wave_2 --&gt; wave_3 --&gt; apps
-
-    classDef broken fill:#fee,stroke:#c33,color:#000
-    class loki broken</code></pre>
+    root --&gt; wave_m1 --&gt; wave_0 --&gt; wave_1 --&gt; wave_2 --&gt; wave_3 --&gt; apps</code></pre>
 <p>The invariant: <strong>Argo CD pulls from git, CI never pushes to the cluster</strong>. CI can lose all its AWS creds and the cluster keeps reconciling. See <a href="../walkthrough/04-argocd/">Argo CD</a> for the wave-by-wave detail.</p>
 <h2 id="irsa-pod-to-aws-identity-flow">IRSA — pod-to-AWS identity flow<a class="headerlink" href="#irsa-pod-to-aws-identity-flow" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
@@ -1214,6 +1244,35 @@
     Pod-&gt;&gt;R53: ChangeResourceRecordSets&lt;br/&gt;(DNS-01 challenge TXT)
     R53--&gt;&gt;Pod: 200 OK</code></pre>
 <p>This is the AWS killer feature for K8s — covered in <a href="../walkthrough/02-terraform/#irsa">Terraform Foundation</a> and contrasted with on-prem alternatives in <a href="../operating/onprem-comparison/">On-Prem Comparison</a>.</p>
+<h2 id="final-health-snapshot">Final health snapshot<a class="headerlink" href="#final-health-snapshot" title="Permanent link">&para;</a></h2>
+<p>On 2026-07-07, every Argo CD Application was <code>Synced</code>/<code>Healthy</code>, no pods were Pending, external-dns
+reported records already up to date, and public HTTPS endpoints responded:</p>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Expected response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>argocd.k8s.gaiaderma.com</code></td>
+<td>HTTP 200</td>
+</tr>
+<tr>
+<td><code>demo-dev.k8s.gaiaderma.com/readyz</code></td>
+<td>HTTP 200</td>
+</tr>
+<tr>
+<td><code>demo.k8s.gaiaderma.com/readyz</code></td>
+<td>HTTP 200</td>
+</tr>
+<tr>
+<td><code>grafana.k8s.gaiaderma.com</code></td>
+<td>HTTP 302 to <code>/login</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="observability-data-flow">Observability data flow<a class="headerlink" href="#observability-data-flow" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     pods[App + platform pods]
@@ -1224,8 +1283,8 @@
     cma["custom.metrics.k8s.io&lt;br/&gt;(APIService)"]
     hpa[HPA controller]
 
-    promtail[Promtail&lt;br/&gt;DaemonSet*]
-    loki[(Loki&lt;br/&gt;* currently broken)]
+    promtail[Promtail&lt;br/&gt;DaemonSet]
+    loki[(Loki)]
 
     grafana[Grafana]
     user([localhost:3000])

@@ -16,6 +16,7 @@ A single defense-in-depth narrative you can tell start to finish in interview.
 | 8 | **Network** (in-cluster) | NetworkPolicy default-deny ingress + egress per namespace | Explicit allows for DNS, ingress, scraping, app→RDS |
 | 9 | **Supply chain** | ECR scan-on-push, lifecycle (10 images), distroless + non-root images | Vulnerable images surfaced at push; old tags expire |
 | 10 | **Secrets in git** | SOPS + AWS KMS via KSOPS plugin in Argo CD repo-server | Decrypt requires KMS access; pull-without-decrypt yields ciphertext |
+| 11 | **Terraform access** | Human admin access entry pinned; Terraform CI role has its own EKS access entry | Local and CI callers no longer overwrite each other's cluster-admin principal |
 
 ## The single most useful interview answer
 
@@ -30,3 +31,15 @@ These are choices, not gaps:
 - **WAF / Shield Advanced** — out of scope for the demo budget; would be the next layer for a real prod ingress.
 - **Vault for in-cluster secrets** — SOPS + KMS covers the secrets-in-git case. Vault would add dynamic database creds; useful but ops overhead not justified here.
 - **Cluster autoscaler** — not enabled. HPA + manually-sized node groups for the demo footprint.
+- **Broad GitHub-hosted runner IP allowlisting** — not enabled. Standard runner IPs are dynamic and
+  shared. Terraform applies that need the Kubernetes API should run locally, on a self-hosted runner
+  with private network access, or on a larger runner with static IP ranges.
+
+## Upstream docs to read
+
+- [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) — `baseline` and `restricted`.
+- [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/) — namespace label enforcement.
+- [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) — default-deny plus explicit allows.
+- [Amazon EKS IRSA](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) — pod-to-AWS identity without node credentials.
+- [GitHub OIDC with AWS](https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) — short-lived CI credentials.
+- [GitHub-hosted runner networking](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#ip-addresses) — why shared runner IP ranges are not a strong allowlist boundary.

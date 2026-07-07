@@ -1250,6 +1250,10 @@
 <td>Cert not issuing</td>
 <td><code>kubectl describe certificate</code>, then <code>certificaterequest</code>, then <code>order</code>, then <code>challenge</code>. The chain tells you which step failed.</td>
 </tr>
+<tr>
+<td>Terraform changed node group <code>desired_size</code> but AWS still shows old desired size</td>
+<td>The upstream <code>terraform-aws-eks</code> managed-node-group module ignores <code>scaling_config[0].desired_size</code> after creation. Use <code>aws eks update-nodegroup-config</code> for runtime capacity, or design a separate autoscaling/capacity path.</td>
+</tr>
 </tbody>
 </table>
 

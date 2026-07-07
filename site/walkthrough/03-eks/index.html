@@ -696,10 +696,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ebs-csi-the-manual-step-caveat" class="md-nav__link">
+  <a href="#ebs-csi-and-default-gp3-storageclass" class="md-nav__link">
     <span class="md-ellipsis">
       
-        EBS CSI — the manual-step caveat
+        EBS CSI and default gp3 StorageClass
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1141,10 +1152,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ebs-csi-the-manual-step-caveat" class="md-nav__link">
+  <a href="#ebs-csi-and-default-gp3-storageclass" class="md-nav__link">
     <span class="md-ellipsis">
       
-        EBS CSI — the manual-step caveat
+        EBS CSI and default gp3 StorageClass
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1176,11 +1198,13 @@
 <h2 id="version-and-endpoint">Version and endpoint<a class="headerlink" href="#version-and-endpoint" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>EKS 1.31</strong> — one minor version behind GA. Lets third-party operators (Argo CD, Kyverno, Prometheus Operator) publish compatibility statements.</li>
-<li><strong>Public + private endpoint</strong> with <code>public_access_cidrs</code> whitelist to a single home IP.</li>
+<li><strong>Public + private endpoint</strong> with <code>public_access_cidrs</code> whitelist to a single operator IP.</li>
 </ul>
 <div class="admonition question">
 <p class="admonition-title">Interview probe</p>
-<p>"Why not private-only?" → Private-only requires a bastion or VPN to reach the API. The whitelist is the pragmatic middle ground for a solo build. Production would be private-only + bastion.</p>
+<p>"Why not private-only?" → Private-only requires a bastion, VPN, or private runner path to reach the API.
+The whitelist is the pragmatic middle ground for a solo build. Production would be private-only
+plus a runner/bastion/VPN path.</p>
 </div>
 <h2 id="hardening">Hardening<a class="headerlink" href="#hardening" title="Permanent link">&para;</a></h2>
 <table>
@@ -1227,7 +1251,17 @@
 Tolerations + <code>nodeSelector: node-role=platform</code> on Helm values pin them here.</p>
 <p><strong>Why on-demand?</strong> Platform pods can't tolerate spot eviction without 30 s drain blowing up DNS / ingress.</p>
 <h3 id="apps-t3medium-spot-no-taints">Apps — <code>t3.medium</code> SPOT, no taints<a class="headerlink" href="#apps-t3medium-spot-no-taints" title="Permanent link">&para;</a></h3>
-<p>Hosts the demo-api. <strong>Why spot?</strong> Stateless app pods are perfect spot candidates; PDB + multiple replicas + topology spread make eviction safe.</p>
+<p>Hosts the demo-api. <strong>Why spot?</strong> Stateless app pods are perfect spot candidates; PDB + prod replicas
+make eviction safer than running stateful platform components there.</p>
+<div class="admonition note">
+<p class="admonition-title">Desired-size caveat</p>
+<p>The wrapper sets the apps node group <code>desired_size = 2</code>, but the upstream EKS managed node group
+module ignores <code>scaling_config[0].desired_size</code> after creation so autoscalers or manual AWS changes
+do not fight Terraform. Live AWS currently reports desired size <code>1</code>, max size <code>2</code>, and there are no
+Pending pods. If the interview story needs two live apps nodes, scale it explicitly with
+<code>aws eks update-nodegroup-config</code> or add a dedicated capacity-management path instead of assuming
+Terraform will reconcile desired size.</p>
+</div>
 <h2 id="cni">CNI<a class="headerlink" href="#cni" title="Permanent link">&para;</a></h2>
 <p><strong>AWS VPC CNI</strong> with two key knobs:</p>
 <ul>
@@ -1235,21 +1269,24 @@ Tolerations + <code>nodeSelector: node-role=platform</code> on Helm values pin t
 <li><strong><code>enableNetworkPolicy: true</code></strong> — VPC CNI itself enforces NetworkPolicy resources via eBPF. Recent (2023+) and lets you skip Calico.</li>
 </ul>
 <p>The alternative is <strong>Calico or Cilium as a separate CNI</strong> with the operational cost of running them. Used to be the default; now optional.</p>
-<h2 id="ebs-csi-the-manual-step-caveat">EBS CSI — the manual-step caveat<a class="headerlink" href="#ebs-csi-the-manual-step-caveat" title="Permanent link">&para;</a></h2>
+<h2 id="ebs-csi-and-default-gp3-storageclass">EBS CSI and default gp3 StorageClass<a class="headerlink" href="#ebs-csi-and-default-gp3-storageclass" title="Permanent link">&para;</a></h2>
 <p>EKS 1.31 ships <strong>no default StorageClass and no CSI driver out of the box</strong>.</p>
 <ul>
 <li>The driver itself was added as a managed addon + IRSA in <code>main.tf</code></li>
-<li>The <code>gp3</code> StorageClass with <code>is-default-class: "true"</code> is currently <code>kubectl apply</code>'d by hand post-Terraform</li>
+<li>The <code>gp3</code> StorageClass with <code>is-default-class: "true"</code> is managed by Terraform as <code>kubernetes_storage_class_v1.gp3</code></li>
 </ul>
-<p>Live state confirms both:</p>
+<p>Live state:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gp2             kubernetes.io/aws-ebs   Delete   WaitForFirstConsumer   false
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>gp3 (default)   ebs.csi.aws.com         Delete   WaitForFirstConsumer   true
 </span></code></pre></div>
 <p><code>gp2</code> is the legacy in-tree provisioner — kept around for historical reasons, but the in-tree provisioner was removed and only <code>ebs.csi.aws.com</code> would actually work.</p>
-<div class="admonition warning">
-<p class="admonition-title">Follow-up</p>
-<p>Convert the <code>gp3</code> StorageClass apply to a <code>kubernetes_manifest</code> resource (kubernetes-provider) or a <code>null_resource</code> with <code>local-exec</code>. Currently a known IaC gap.</p>
-</div>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/config-cluster-endpoint.html">Amazon EKS cluster endpoint access</a> — public/private endpoint modes and CIDR allowlists.</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html">Amazon EKS managed node groups</a> — lifecycle and scaling model for EKS-managed nodes.</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html">Amazon EBS CSI driver</a> — why EBS provisioning is a CSI add-on and not a built-in default.</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/cni-network-policy.html">Amazon VPC CNI network policy</a> — how the AWS CNI enforces NetworkPolicy.</li>
+</ul>
 
 
 

@@ -691,10 +691,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aws-load-balancer-controller" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS Load Balancer Controller
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cert-manager" class="md-nav__link">
     <span class="md-ellipsis">
       
         cert-manager
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-dns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        external-dns
       
     </span>
   </a>
@@ -739,6 +761,34 @@
     <span class="md-ellipsis">
       
         Kyverno
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Kyverno">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cleanup-cronjob-image-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup CronJob image fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1063,10 +1113,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aws-load-balancer-controller" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS Load Balancer Controller
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cert-manager" class="md-nav__link">
     <span class="md-ellipsis">
       
         cert-manager
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-dns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        external-dns
       
     </span>
   </a>
@@ -1115,6 +1187,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Kyverno">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cleanup-cronjob-image-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup CronJob image fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
+  
 </li>
       
     </ul>
@@ -1142,24 +1242,76 @@
 <h2 id="ingress-nginx">ingress-nginx<a class="headerlink" href="#ingress-nginx" title="Permanent link">&para;</a></h2>
 <p><code>platform/ingress-nginx/values.yaml</code>:</p>
 <ul>
-<li><strong>NLB annotations</strong>: <code>service.beta.kubernetes.io/aws-load-balancer-type: nlb</code> — L4 LB</li>
+<li><strong>NLB annotations</strong>: <code>service.beta.kubernetes.io/aws-load-balancer-type: external</code>,
+  <code>aws-load-balancer-scheme: internet-facing</code>, <code>aws-load-balancer-nlb-target-type: ip</code></li>
 <li><strong>Metrics</strong>: <code>metrics.enabled=true</code>, <code>metrics.serviceMonitor.enabled=true</code></li>
 <li><strong>Platform pinning</strong>: <code>nodeSelector</code> + <code>tolerations</code> keep it on platform nodes</li>
+<li><strong>Admission webhook certgen placement</strong>: patch Jobs also run on the platform node so they do not
+  get stuck behind apps-node pod pressure</li>
 </ul>
 <div class="admonition question">
 <p class="admonition-title">Why NLB not ALB?</p>
 <p>NLB is L4 — TLS termination happens at ingress-nginx, not the LB. Lets ingress-nginx handle SNI, cert rotation via cert-manager, ModSecurity, etc. ALB terminates TLS at AWS, which limits in-cluster cert flexibility.</p>
 </div>
+<h2 id="aws-load-balancer-controller">AWS Load Balancer Controller<a class="headerlink" href="#aws-load-balancer-controller" title="Permanent link">&para;</a></h2>
+<p>This is the controller that made the ingress-nginx <code>LoadBalancer</code> Service actually provision an AWS
+NLB. The in-tree AWS cloud provider cannot satisfy the combination used here:</p>
+<ul>
+<li><code>aws-load-balancer-type: external</code></li>
+<li><code>aws-load-balancer-nlb-target-type: ip</code></li>
+</ul>
+<p>The split is deliberate:</p>
+<ul>
+<li>Terraform owns AWS IAM: vendored upstream IAM policy JSON, <code>aws_iam_policy.aws_lb_controller</code>,
+  and <code>module.irsa_aws_lb_controller</code>.</li>
+<li>Argo CD owns the Helm chart: <code>argocd/platform/aws-load-balancer-controller.yaml</code> plus
+  <code>platform/aws-load-balancer-controller/values.yaml</code>.</li>
+</ul>
+<p>Two important fixes made it stable:</p>
+<ol>
+<li><code>vpcId</code> is pinned in values. Auto-discovery through IMDS fails from pods because node metadata
+   uses IMDSv2 with <code>hop_limit=1</code>; raising the hop limit would expose node-role credentials to pods.</li>
+<li>Argo CD ignores webhook TLS Secret data and webhook <code>caBundle</code> drift because the chart/controller
+   manage those values out-of-band.</li>
+</ol>
 <h2 id="cert-manager">cert-manager<a class="headerlink" href="#cert-manager" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>IRSA SA annotation</strong>: <code>eks.amazonaws.com/role-arn: arn:aws:iam::649822034735:role/k8s-platform-dev-cert-manager</code> (verified live)</li>
 <li><strong>CRDs installed</strong> by the chart (<code>installCRDs=true</code>)</li>
 <li><strong>DNS-01 over HTTP-01</strong> because we want wildcard certs and DNS-01 doesn't require the LB to be publicly reachable during issuance</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Known follow-up — dual source block</p>
-<p><code>argocd/platform/cert-manager.yaml</code> has <strong>both</strong> a singular <code>source:</code> (no <code>$values</code>) and a plural <code>sources:</code> (with <code>$values</code>). Currently Healthy because plural wins, but the spec is invalid. If singular ever wins, cert-manager installs with default Helm values (no IRSA → DNS-01 broken). Delete the singular <code>source:</code> block.</p>
+<div class="admonition success">
+<p class="admonition-title">Fixed (2026-06-22) — dual source block</p>
+<p><code>argocd/platform/cert-manager.yaml</code> had <strong>both</strong> a singular <code>source:</code> (no <code>$values</code>) and a plural <code>sources:</code> (with <code>$values</code>) — an invalid spec where the plural happened to win, but if the singular ever won, cert-manager would install with default Helm values (no IRSA → DNS-01 broken). The stray singular block has been removed; committed and verified live (root reconciled, <code>cert-manager</code> Application Healthy with only the plural block in spec).</p>
 </div>
+<ul>
+<li><strong>ClusterIssuers</strong>: two issuers (<code>letsencrypt-staging</code>, <code>letsencrypt-prod</code>) are embedded directly in <code>platform/cert-manager/values.yaml</code> via <code>extraObjects</code> — both DNS-01 over Route53, scoped to the same <code>hostedZoneID</code> the IRSA policy grants. demo-api's Ingress uses the staging issuer first (avoids Let's Encrypt rate limits) before switching to prod.</li>
+</ul>
+<p>Live certificates are Ready for Argo CD and both demo-api environments.</p>
+<h2 id="external-dns">external-dns<a class="headerlink" href="#external-dns" title="Permanent link">&para;</a></h2>
+<p><code>external-dns</code> watches Ingress resources and reconciles Route 53 records for <code>gaiaderma.com</code>.</p>
+<p>Key settings:</p>
+<ul>
+<li><code>provider.name: aws</code></li>
+<li><code>sources: [ingress]</code></li>
+<li><code>domainFilters: [gaiaderma.com]</code></li>
+<li><code>registry: txt</code> with <code>txtOwnerId: k8s-platform-dev</code></li>
+<li><code>policy: upsert-only</code></li>
+<li><code>aws-zone-type: public</code></li>
+<li><code>prefer-alias: true</code></li>
+<li>IRSA ServiceAccount annotation for <code>k8s-platform-dev-external-dns</code></li>
+</ul>
+<p>Final live signal:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>external-dns ... 1/1 Running
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>All records are already up to date
+</span></code></pre></div>
+<p>Public hostnames currently resolve and serve HTTPS:</p>
+<ul>
+<li><code>argocd.k8s.gaiaderma.com</code></li>
+<li><code>demo-dev.k8s.gaiaderma.com</code></li>
+<li><code>demo.k8s.gaiaderma.com</code></li>
+<li><code>grafana.k8s.gaiaderma.com</code></li>
+</ul>
 <h2 id="kube-prometheus-stack">kube-prometheus-stack<a class="headerlink" href="#kube-prometheus-stack" title="Permanent link">&para;</a></h2>
 <p><code>platform/kube-prometheus-stack/values.yaml</code>:</p>
 <ul>
@@ -1178,45 +1330,81 @@
 <p>No <code>prometheus.yml</code> reloads. No static configs. Apps just declare scrape intent.</p>
 </div>
 <h2 id="loki">Loki<a class="headerlink" href="#loki" title="Permanent link">&para;</a></h2>
-<p>Currently <strong>broken</strong>. Sync error from Argo CD:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Failed to load target state: failed to generate manifest for source 1 of 2: 
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Error: execution error at (loki/templates/validate.yaml:31:4): 
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>You have more than zero replicas configured for both the single binary and 
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>simple scalable targets. If this was intentional change the deploymentMode 
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>to the transitional &#39;SingleBinary&lt;-&gt;SimpleScalable&#39; mode
+<p><strong>Fixed (2026-06-22).</strong> This was a genuinely instructive bug: the <code>grafana/loki</code> chart's
+<code>templates/validate.yaml</code> enforces several cross-field invariants, but <code>helm template</code> (what Argo CD's
+manifest generation runs) only surfaces <strong>one validation error per render</strong> — fixing it just reveals
+the next one. It took 4 sequential rounds to get from <code>Unknown</code> sync to <code>Synced</code>/<code>Healthy</code>.</p>
+<ol>
+<li><strong>Deployment mode conflict.</strong> First sync error:</li>
+</ol>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Failed to load target state: failed to generate manifest for source 1 of 2:
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Error: execution error at (loki/templates/validate.yaml:31:4):
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>You have more than zero replicas configured for both the single binary and
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>simple scalable targets. If this was intentional change the deploymentMode
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>to the transitional &#39;SingleBinary&lt;-&gt;SimpleScalable&#39; mode
 </span></code></pre></div>
-<p><code>platform/loki/values.yaml</code> is setting replicas on both <code>singleBinary</code> and <code>read/write/backend</code> (the simple-scalable path). Chart 6.6.4 rejects that.</p>
-<p>The Application shows <code>Healthy</code> because there are no pods to be unhealthy — Argo CD just can't render the chart, so nothing got deployed. <code>verify-platform.sh</code> doesn't catch it because the script's loki check is one of the false-PASS cases.</p>
+<p><code>platform/loki/values.yaml</code> was setting replicas on both <code>singleBinary</code> and <code>read/write/backend</code>
+   (the simple-scalable path) — chart 6.6.4 rejects that. Fix: <code>deploymentMode: SingleBinary</code> +
+   zeroed <code>backend.replicas</code>/<code>read.replicas</code>/<code>write.replicas</code>.</p>
+<ol>
+<li>
+<p><strong>Missing schema config.</strong> Chart 6.6.4 has no default <code>schemaConfig</code> — it's mandatory. Added
+   <code>loki.schemaConfig</code> (<code>store: tsdb</code>, <code>object_store: filesystem</code>, <code>schema: v13</code>).</p>
+</li>
+<li>
+<p><strong>Oversized default caches.</strong> <code>chunksCache</code>/<code>resultsCache</code> default to Memcached subcharts
+   requesting ~9.8Gi memory <strong>each</strong> — wildly oversized for this 2-node demo cluster, caused
+   <code>FailedScheduling</code> on both nodes. Disabled both (<code>chunksCache.enabled: false</code>,
+   <code>resultsCache.enabled: false</code>, top-level keys, not nested under <code>loki:</code>) — this is the chart's
+   own documented recommendation for resource-constrained environments.</p>
+</li>
+<li>
+<p><strong>Canary/test coupling.</strong> <code>lokiCanary.enabled: false</code> is also a top-level key —
+   <code>monitoring.lokiCanary.enabled</code> doesn't exist and silently no-ops. Once the canary is disabled,
+   <code>test.enabled: false</code> is also required: the chart's <code>validate.yaml</code> has
+   <code>if and (not lokiCanary.enabled) test.enabled</code>, and <code>test.enabled</code> defaults <code>true</code> assuming the
+   canary exists for <code>helm test</code> to probe. Argo CD never runs <code>helm test</code>, so disabling it is correct.</p>
+</li>
+</ol>
+<p>Final state: <code>loki</code> Application <code>Synced</code>/<code>Healthy</code>, single <code>loki-0</code> pod <code>Running</code>/<code>Ready</code>.</p>
+<p><strong>Lesson:</strong> the Application showed <code>Healthy</code> even while broken, because there were no pods to be
+unhealthy — Argo CD just couldn't render the chart, so nothing got deployed. <code>Unknown</code> sync status
+was the real signal, not <code>Health</code>. <code>verify-platform.sh</code>'s loki check was a false-PASS case for the
+same reason.</p>
 <div class="admonition tip">
 <p class="admonition-title">Fix</p>
 <p>Pick one mode. For demos, single-binary + filesystem storage:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">deploymentMode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SingleBinary</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">singleBinary</span><span class="p">:</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">read</span><span class="p">:</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">write</span><span class="p">:</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nt">backend</span><span class="p">:</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">deploymentMode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SingleBinary</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">singleBinary</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">read</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">write</span><span class="p">:</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nt">backend</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 </span></code></pre></div>
 <p>For production: simple-scalable + S3 + boltdb-shipper for index. That's the interview talking point — single-binary is for demos, simple-scalable is what you'd actually run.</p>
 </div>
 <h2 id="prometheus-adapter">prometheus-adapter<a class="headerlink" href="#prometheus-adapter" title="Permanent link">&para;</a></h2>
 <p>Custom rule exposing <code>http_requests_per_second</code> from <code>http_requests_total</code> over the last minute:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">rules</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">custom</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">seriesQuery</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;http_requests_total{namespace!=&quot;&quot;,pod!=&quot;&quot;}&#39;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">        </span><span class="nt">overrides</span><span class="p">:</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">          </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;namespace&quot;</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="nt">pod</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;pod&quot;</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="nt">matches</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;^(.*)_total&quot;</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${1}_per_second&quot;</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">metricsQuery</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sum(rate(&lt;&lt;.Series&gt;&gt;{&lt;&lt;.LabelMatchers&gt;&gt;}[1m]))</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">(&lt;&lt;.GroupBy&gt;&gt;)&#39;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">custom</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">seriesQuery</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;http_requests_total{namespace!=&quot;&quot;,pod!=&quot;&quot;}&#39;</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">        </span><span class="nt">overrides</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">          </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;namespace&quot;</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">          </span><span class="nt">pod</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nt"> resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;pod&quot;</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">        </span><span class="nt">matches</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;^(.*)_total&quot;</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${1}_per_second&quot;</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">      </span><span class="nt">metricsQuery</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sum(rate(&lt;&lt;.Series&gt;&gt;{&lt;&lt;.LabelMatchers&gt;&gt;}[1m]))</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">(&lt;&lt;.GroupBy&gt;&gt;)&#39;</span>
 </span></code></pre></div>
 <p>This serves the <code>v1beta1.custom.metrics.k8s.io</code> APIService — confirmed live and Available. Enables HPA v2 to scale on <code>Pods</code> or <code>Object</code> metrics, not just CPU/memory.</p>
+<div class="admonition note">
+<p class="admonition-title">Second rule added for demo-api (2026-06-22)</p>
+<p>The original rule derives <code>http_requests_per_second</code> from the <strong>nginx ingress</strong> series (Service-resource type). demo-api's HPA wants a <strong>Pods</strong>-resource metric instead, so a second rule was added mapping the app's own <code>http_requests_total{namespace,pod}</code> (scraped via the <a href="../06-app/#observability">PodMonitor</a> below) to <code>http_requests_per_second</code> on the <code>pod</code> resource, using the Pods-type aggregation pattern (<code>sum(rate(...)) by (&lt;&lt;.GroupBy&gt;&gt;)</code>). Both rules coexist; nginx's is unaffected.</p>
+</div>
 <h2 id="kyverno">Kyverno<a class="headerlink" href="#kyverno" title="Permanent link">&para;</a></h2>
 <p>3 ClusterPolicies in <code>platform/kyverno/policies/</code>:</p>
 <ul>
@@ -1228,6 +1416,27 @@
 <p class="admonition-title">Why Kyverno over OPA / Gatekeeper?</p>
 <p>The policy language is <strong>YAML / JSON pattern matching</strong>, not Rego. Lower-friction onboarding. Gatekeeper is more powerful for complex constraints but the Rego learning curve is real. Kyverno covers ~90% of K8s policy use cases.</p>
 </div>
+<h3 id="cleanup-cronjob-image-fix">Cleanup CronJob image fix<a class="headerlink" href="#cleanup-cronjob-image-fix" title="Permanent link">&para;</a></h3>
+<p>Kyverno's chart ships 5 cleanup <code>CronJob</code>s (admission/cluster-admission/update-requests/ephemeral/
+cluster-ephemeral reports) plus 2 helm-hook Jobs, all defaulting to <code>bitnami/kubectl:1.28.5</code>.
+Bitnami deprecated its general Docker Hub catalog in August 2025, so every run hit
+<code>ImagePullBackOff</code> — and because these are CronJobs, that's not a one-time failure, it's a
+recurring one every 10 minutes, each spawning a fresh broken pod.</p>
+<p>Fix in <code>platform/kyverno/values.yaml</code>: override all 7 image refs to <code>bitnamilegacy/kubectl:1.28.5</code>
+(Bitnami's relocated legacy registry — a drop-in replacement that still ships bash, which the
+cleanup script needs; <code>registry.k8s.io/kubectl</code> is distroless/no-shell and would break it).
+Verified via <code>helm template</code>.</p>
+<p>Final state: <code>kyverno</code> is <code>Synced</code>/<code>Healthy</code>, its controllers run on the platform node, and the
+cluster has no Pending pods.</p>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html">AWS Load Balancer Controller</a> — how Services and Ingresses become AWS load balancers.</li>
+<li><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/">AWS Load Balancer Controller Service annotations</a> — the <code>external</code> and <code>nlb-target-type: ip</code> annotations.</li>
+<li><a href="https://cert-manager.io/docs/configuration/acme/dns01/route53/">cert-manager Route 53 DNS-01</a> — Route 53 solver configuration for ACME challenges.</li>
+<li><a href="https://kubernetes-sigs.github.io/external-dns/latest/docs/tutorials/aws/">external-dns AWS tutorial</a> — Route 53 record reconciliation.</li>
+<li><a href="https://prometheus-operator.dev/docs/developer/getting-started/">Prometheus Operator API</a> — why <code>ServiceMonitor</code>, <code>PodMonitor</code>, and <code>PrometheusRule</code> exist.</li>
+<li><a href="https://kyverno.io/docs/writing-policies/">Kyverno policies</a> — pattern-based admission policy without Rego.</li>
+</ul>
 
 
 

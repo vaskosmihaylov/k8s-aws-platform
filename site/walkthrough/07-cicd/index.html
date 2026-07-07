@@ -750,12 +750,12 @@
   <a href="#workflows-in-this-repo" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Workflows (in this repo)
+        Workflows in this repo
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Workflows (in this repo)">
+    <nav class="md-nav" aria-label="Workflows in this repo">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -797,10 +797,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#app-repo-flow-planned" class="md-nav__link">
+  <a href="#app-repo-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        App repo flow (planned)
+        App repo flow
       
     </span>
   </a>
@@ -808,10 +808,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#single-oidc-role-multiple-sub-forms" class="md-nav__link">
+  <a href="#two-oidc-roles-scoped-by-purpose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Single OIDC role, multiple sub forms
+        Two OIDC roles, scoped by purpose
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two OIDC roles, scoped by purpose">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terraform-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terraform role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#appecr-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        App/ECR role
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1083,12 +1122,12 @@
   <a href="#workflows-in-this-repo" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Workflows (in this repo)
+        Workflows in this repo
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Workflows (in this repo)">
+    <nav class="md-nav" aria-label="Workflows in this repo">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1130,10 +1169,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#app-repo-flow-planned" class="md-nav__link">
+  <a href="#app-repo-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        App repo flow (planned)
+        App repo flow
       
     </span>
   </a>
@@ -1141,10 +1180,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#single-oidc-role-multiple-sub-forms" class="md-nav__link">
+  <a href="#two-oidc-roles-scoped-by-purpose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Single OIDC role, multiple sub forms
+        Two OIDC roles, scoped by purpose
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two OIDC roles, scoped by purpose">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terraform-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terraform role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#appecr-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        App/ECR role
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1172,80 +1250,109 @@
 
 
 <h1 id="7-cicd">7. CI/CD<a class="headerlink" href="#7-cicd" title="Permanent link">&para;</a></h1>
-<p>Three GitHub Actions workflows in this repo, three OIDC sub forms, one shared IAM role.</p>
+<p>Three workflows in this repo, two AWS OIDC roles, and one deliberate network boundary.</p>
 <h2 id="flow">Flow<a class="headerlink" href="#flow" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     subgraph "config repo: k8s-aws-platform"
         pr1[PR opened]
         merge1[merge to main]
     end
-    subgraph "app repo: k8s-demo-api (planned)"
+    subgraph "app repo: k8s-demo-api"
         commit[commit to main]
     end
 
     pr1 --&gt;|terraform-plan.yml&lt;br/&gt;OIDC: pull_request sub| ghap1[GH Actions]
-    ghap1 --&gt;|terraform plan| aws1[AWS]
+    ghap1 --&gt;|best-effort terraform plan&lt;br/&gt;narrow role| aws1[AWS]
     aws1 --&gt;|posts plan| pr1
 
     pr1 --&gt;|validate-manifests.yml| ghap2[yamllint + kubeconform]
 
     merge1 --&gt;|terraform-apply.yml&lt;br/&gt;OIDC: environment:production sub| ghap3[GH Actions]
-    ghap3 --&gt;|terraform apply| aws2[AWS]
+    ghap3 --&gt;|terraform plan/apply&lt;br/&gt;requires EKS API network reachability| aws2[AWS + EKS API]
 
-    commit --&gt;|build + ECR push&lt;br/&gt;OIDC: ref:refs/heads/main sub| ghap4[GH Actions]
-    ghap4 --&gt;|ECR| ecr[(ECR scan_on_push)]
-    ghap4 --&gt;|kustomize edit set image&lt;br/&gt;+ git push| pr1
+    commit --&gt;|build + test + ECR push&lt;br/&gt;OIDC: ref:refs/heads/main sub| ghap4[GH Actions]
+    ghap4 --&gt;|immutable image tags| ecr[(ECR scan_on_push)]
+    ecr --&gt;|image tag PR when app changes| pr1
 
     classDef oidc fill:#9f9,stroke:#360,color:#000
     class ghap1,ghap3,ghap4 oidc</code></pre>
-<h2 id="workflows-in-this-repo">Workflows (in this repo)<a class="headerlink" href="#workflows-in-this-repo" title="Permanent link">&para;</a></h2>
+<h2 id="workflows-in-this-repo">Workflows in this repo<a class="headerlink" href="#workflows-in-this-repo" title="Permanent link">&para;</a></h2>
 <h3 id="terraform-planyml"><code>terraform-plan.yml</code><a class="headerlink" href="#terraform-planyml" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Trigger</strong>: PR</li>
+<li><strong>Trigger</strong>: PR touching <code>terraform/**</code></li>
 <li><strong>OIDC sub</strong>: <code>repo:&lt;org&gt;/k8s-aws-platform:pull_request</code></li>
-<li><strong>What</strong>: <code>terraform init &amp;&amp; terraform plan</code>, posts plan as PR comment</li>
+<li><strong>Role variable</strong>: <code>AWS_ROLE_ARN</code></li>
+<li><strong>What</strong>: <code>terraform fmt</code>, <code>init</code>, <code>validate</code>, <code>plan</code>, then PR comment with the plan output</li>
+<li><strong>Caveat</strong>: this intentionally uses the narrower role. A full remote plan still needs both
+  sufficient read permissions and network reachability to the EKS API.</li>
 </ul>
 <h3 id="terraform-applyyml"><code>terraform-apply.yml</code><a class="headerlink" href="#terraform-applyyml" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Trigger</strong>: push to <code>main</code></li>
-<li><strong>OIDC sub</strong>: <code>repo:&lt;org&gt;/k8s-aws-platform:environment:production</code> (declares <code>environment: production</code>)</li>
-<li><strong>What</strong>: <code>terraform init &amp;&amp; terraform apply</code></li>
+<li><strong>Trigger</strong>: push to <code>main</code> touching Terraform or the workflow; manual <code>workflow_dispatch</code></li>
+<li><strong>OIDC sub</strong>: <code>repo:&lt;org&gt;/k8s-aws-platform:environment:production</code></li>
+<li><strong>Role variable</strong>: <code>TERRAFORM_AWS_ROLE_ARN</code></li>
+<li><strong>What</strong>: <code>terraform init</code>, <code>plan</code>, <code>apply</code></li>
+<li><strong>Current caveat</strong>: standard GitHub-hosted runners can assume the AWS role, but cannot reach the
+  Kubernetes API while the EKS public endpoint is allowlisted to the operator <code>/32</code>.</li>
 </ul>
+<p>That caveat is intentional. Do not allowlist the broad GitHub Actions IP ranges just to make this
+workflow green. For Kubernetes/Helm-backed Terraform resources, use one of:</p>
+<ol>
+<li>local apply from the allowed IP,</li>
+<li>a self-hosted runner in the VPC or private network path,</li>
+<li>a GitHub larger runner with static IP ranges, then allowlist only those static ranges.</li>
+</ol>
 <h3 id="validate-manifestsyml"><code>validate-manifests.yml</code><a class="headerlink" href="#validate-manifestsyml" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Trigger</strong>: PR</li>
-<li><strong>What</strong>: <code>yamllint</code> + <code>kubeconform</code> against all manifests in <code>argocd/</code>, <code>platform/</code>, <code>apps/</code></li>
-<li>No AWS access needed — no OIDC</li>
+<li><strong>What</strong>: <code>yamllint</code> + <code>kubeconform</code> against manifests in <code>argocd/</code>, <code>platform/</code>, and <code>apps/</code></li>
+<li><strong>AWS access</strong>: none</li>
 </ul>
-<h2 id="app-repo-flow-planned">App repo flow (planned)<a class="headerlink" href="#app-repo-flow-planned" title="Permanent link">&para;</a></h2>
-<p>When <code>k8s-demo-api</code> lands:</p>
+<h2 id="app-repo-flow">App repo flow<a class="headerlink" href="#app-repo-flow" title="Permanent link">&para;</a></h2>
+<p><code>k8s-demo-api</code> is a separate repo and should stay app-focused:</p>
 <ol>
-<li>App commit triggers build</li>
-<li>Multi-stage Dockerfile produces distroless, non-root image</li>
-<li>Image pushed to ECR (scan-on-push, lifecycle keeps last 10)</li>
-<li>Workflow opens PR against this repo: <code>cd apps/demo-api/overlays/dev &amp;&amp; kustomize edit set image demo-api=&lt;ECR_URL&gt;:&lt;TAG&gt;</code></li>
-<li>PR merge triggers Argo CD sync → pods roll</li>
+<li>App commit triggers build.</li>
+<li>Tests run in the app repo.</li>
+<li>Multi-stage Dockerfile produces a distroless, non-root image.</li>
+<li>Image is pushed to ECR.</li>
+<li>A config PR updates the image tag in this repo.</li>
+<li>Argo CD pulls the merged config and rolls the deployment.</li>
 </ol>
-<h2 id="single-oidc-role-multiple-sub-forms">Single OIDC role, multiple sub forms<a class="headerlink" href="#single-oidc-role-multiple-sub-forms" title="Permanent link">&para;</a></h2>
-<p>One GitHub Environment (<code>production</code>). <code>AWS_ROLE_ARN</code> is a <strong>repo-level GitHub variable</strong> (not a secret — ARNs aren't sensitive).</p>
-<p>The IAM role's trust policy accepts:</p>
+<h2 id="two-oidc-roles-scoped-by-purpose">Two OIDC roles, scoped by purpose<a class="headerlink" href="#two-oidc-roles-scoped-by-purpose" title="Permanent link">&para;</a></h2>
+<p>Role ARNs are GitHub repository variables because ARNs are not secrets. The trust policy and IAM
+permissions are the actual security boundary.</p>
+<h3 id="terraform-role">Terraform role<a class="headerlink" href="#terraform-role" title="Permanent link">&para;</a></h3>
+<p><code>TERRAFORM_AWS_ROLE_ARN = arn:aws:iam::649822034735:role/k8s-platform-dev-terraform-github-actions</code></p>
+<p>Trust policy accepts:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;StringEquals&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">&quot;token.actions.githubusercontent.com:aud&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sts.amazonaws.com&quot;</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="p">},</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;StringLike&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">&quot;token.actions.githubusercontent.com:sub&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="s2">&quot;repo:&lt;org&gt;/k8s-aws-platform:environment:production&quot;</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="s2">&quot;repo:&lt;org&gt;/k8s-aws-platform:pull_request&quot;</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="s2">&quot;repo:&lt;org&gt;/k8s-demo-api:ref:refs/heads/main&quot;</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">]</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">}</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;StringEquals&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">&quot;token.actions.githubusercontent.com:sub&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;repo:&lt;org&gt;/k8s-aws-platform:environment:production&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">}</span>
 </span></code></pre></div>
+<p>Permissions: broad Terraform permissions for this demo account plus an EKS access entry and
+cluster-admin policy association for Kubernetes provider auth. That is acceptable for a solo
+interview lab, but in shared production you would split state/workspaces and reduce permissions.</p>
+<h3 id="appecr-role">App/ECR role<a class="headerlink" href="#appecr-role" title="Permanent link">&para;</a></h3>
+<p><code>AWS_ROLE_ARN = arn:aws:iam::649822034735:role/k8s-platform-dev-github-actions</code></p>
+<p>Trust policy accepts the app repo main branch plus config-repo PR subjects. Permissions are narrow:
+ECR push, S3 state object access where needed, and EKS describe.</p>
 <div class="admonition note">
-<p class="admonition-title">Interview elegance</p>
-<p>Three workflows, three sub forms, one shared role — no long-lived AWS keys anywhere. The trust relationship is what limits blast radius.</p>
+<p class="admonition-title">Interview answer</p>
+<p>The point is not "CI can deploy." The point is "CI gets short-lived, claim-scoped credentials
+without static AWS keys." Network reachability to the EKS API is a separate control, and this
+project keeps it separate.</p>
 </div>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services">GitHub OIDC with AWS</a> — how <code>id-token: write</code> becomes AWS credentials.</li>
+<li><a href="https://github.com/aws-actions/configure-aws-credentials">aws-actions/configure-aws-credentials</a> — workflow-side role assumption.</li>
+<li><a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners#ip-addresses">GitHub-hosted runner IP addresses</a> — why standard runner IP ranges are not a good allowlist.</li>
+<li><a href="https://docs.github.com/en/actions/how-tos/manage-runners/larger-runners/manage-larger-runners#creating-static-ip-addresses-for-larger-runners">Managing larger runners</a> — static IP ranges for larger runners.</li>
+</ul>
 
 
 

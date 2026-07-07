@@ -7,7 +7,7 @@ Step-by-step instructions to find and configure all placeholder values in this p
 - AWS CLI v2 installed (`brew install awscli`)
 - An AWS account with admin access
 - `jq` installed (`brew install jq`)
-- Terraform >= 1.7 installed (`brew install terraform`)
+- Terraform >= 1.10 installed (`brew install terraform`); this repo's workflows use `~1.15`
 - kubectl installed (`brew install kubectl`)
 - helm installed (`brew install helm`)
 - pre-commit installed (`brew install pre-commit`)
@@ -121,7 +121,9 @@ This must match the GitHub account/org that owns the `k8s-aws-platform` and `k8s
 
 ## Step 6: Bootstrap Terraform State Backend
 
-This creates the S3 bucket and DynamoDB table for remote state. Run once:
+This creates the S3 bucket for remote state and a legacy DynamoDB lock table. The active backend
+uses S3 native locking via `use_lockfile = true`, so DynamoDB is no longer referenced by
+`terraform/environments/dev/backend.tf`. Run once:
 
 ```bash
 make bootstrap
@@ -152,10 +154,10 @@ Review the plan carefully. It will create:
 - 1 VPC with 9 subnets (3 public, 3 private, 3 isolated)
 - 1 EKS cluster with 2 node groups
 - 1 RDS PostgreSQL instance
-- 2 KMS keys (EKS + RDS)
+- KMS keys for EKS, RDS, and SOPS/KSOPS
 - 1 ECR repository
 - Route 53 hosted zone
-- IAM roles (GitHub Actions OIDC, IRSA for cert-manager and external-dns)
+- IAM roles (GitHub Actions OIDC roles, IRSA for cert-manager, external-dns, AWS Load Balancer Controller, EBS CSI, and Argo CD repo-server)
 - ArgoCD (via Helm)
 
 ## Step 8: Apply Infrastructure
@@ -175,9 +177,11 @@ Key outputs you'll need:
 - `configure_kubectl` — run this command to set up kubectl
 - `route53_name_servers` — delegate these from your registrar
 - `ecr_repository_url` — use this in your CI/CD pipeline
-- `github_actions_role_arn` — set as GitHub Actions variable `AWS_ROLE_ARN`
+- `github_actions_role_arn` — set as GitHub Actions variable `AWS_ROLE_ARN` for the app/ECR role
+- `terraform_github_actions_role_arn` — set as GitHub Actions variable `TERRAFORM_AWS_ROLE_ARN` for protected Terraform Apply
 - `cert_manager_role_arn` — already configured in cert-manager values
-- `external_dns_role_arn` — for external-dns if you add it later
+- `external_dns_role_arn` — already configured in external-dns values
+- `aws_lb_controller_role_arn` — already configured in AWS Load Balancer Controller values
 
 ## Step 9: Configure kubectl
 
@@ -250,13 +254,37 @@ In your GitHub repository settings:
 1. Go to **Settings > Environments**, create an environment called `production`
 2. Add environment protection rules (optional but recommended): require approval
 3. Go to **Settings > Variables and secrets > Variables**
-4. Add repository variable:
+4. Add repository variables:
    - Name: `AWS_ROLE_ARN`
    - Value: (from `terraform output github_actions_role_arn`)
+   - Name: `TERRAFORM_AWS_ROLE_ARN`
+   - Value: (from `terraform output terraform_github_actions_role_arn`)
+5. Add repository secret:
+   - Name: `TF_VAR_DB_PASSWORD`
+   - Value: the same value as local `TF_VAR_db_password`
+
+> **Important:** Standard GitHub-hosted runners are not allowlisted to the EKS API endpoint in this
+> project. They can assume AWS roles, but Terraform resources backed by the `kubernetes` or `helm`
+> providers will time out unless the runner has a permitted network path. Use local apply, a
+> self-hosted runner, or a larger runner with static IP ranges. Do not add all GitHub Actions IP
+> ranges to the EKS endpoint allowlist.
 
 ## Step 12: Create the Demo API Database Secret
 
-After the cluster is up and RDS is running:
+Final state uses SOPS-encrypted Secret manifests and KSOPS in the Argo CD repo-server. Do **not**
+commit plaintext database URLs.
+
+The committed pattern is:
+
+- `apps/demo-api/overlays/dev/secret.enc.yaml`
+- `apps/demo-api/overlays/prod/secret.enc.yaml`
+- `ksops-generator.yaml` in each overlay
+- `.sops.yaml` pointing at the `alias/k8s-platform-sops` KMS key
+
+When rotating or recreating the secret, generate plaintext in `/tmp`, encrypt it with `sops`, commit
+only the encrypted file, then delete the plaintext.
+
+Manual `kubectl create secret` is useful only as an emergency break-glass or early bootstrap check:
 
 ```bash
 # Get the RDS endpoint
@@ -289,8 +317,6 @@ kubectl create configmap demo-api-config \
   --from-literal=log-level=info
 ```
 
-> **Later:** Migrate these secrets to SOPS-encrypted manifests for GitOps management.
-
 ## Step 13: Bootstrap ArgoCD App-of-Apps
 
 ArgoCD is installed by Terraform. Bootstrap the app-of-apps:
@@ -310,10 +336,19 @@ kubectl apply -f argocd/bootstrap/root-app.yaml
 ```
 
 ArgoCD will now sync all platform components in order (sync-waves):
-1. cert-manager (wave 0)
-2. ingress-nginx (wave 1)
-3. kube-prometheus-stack + loki (wave 2)
-4. prometheus-adapter + kyverno (wave 3)
+1. priority-classes (wave -1)
+2. namespaces, cert-manager, AWS Load Balancer Controller (wave 0)
+3. ingress-nginx (wave 1)
+4. kube-prometheus-stack, loki, external-dns (wave 2)
+5. prometheus-adapter, kyverno (wave 3)
+6. demo-api dev/prod (wave 4)
+
+Final expected status:
+
+```bash
+kubectl -n argocd get applications -o wide
+# all Applications should be Synced / Healthy
+```
 
 ## Step 14: Verify Platform
 
@@ -348,7 +383,7 @@ pre-commit run --all-files
 | NAT Gateway | $32 + data |
 | Route 53 | $0.50 |
 | EBS volumes (Prometheus, Grafana, Loki) | $5 |
-| KMS keys (x2) | $2 |
+| KMS keys | $3+ |
 | CloudWatch Logs | $3 |
 | **Total** | **~$180/mo** |
 

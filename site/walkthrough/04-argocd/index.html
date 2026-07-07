@@ -674,6 +674,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#argo-cds-own-helm-values-changed-for-ksops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argo CD's own Helm values changed for KSOPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-non-obvious-details" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -720,6 +731,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1080,6 +1102,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#argo-cds-own-helm-values-changed-for-ksops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argo CD's own Helm values changed for KSOPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-non-obvious-details" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1126,6 +1159,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1190,8 +1234,8 @@
 </tr>
 <tr>
 <td><strong>0</strong></td>
-<td><code>namespaces</code>, <code>cert-manager</code></td>
-<td>Namespaces have PSS labels + ResourceQuota + LimitRange + default-deny NP. cert-manager CRDs are needed by ingress.</td>
+<td><code>namespaces</code>, <code>cert-manager</code>, <code>aws-load-balancer-controller</code></td>
+<td>Namespaces have PSS labels + ResourceQuota + LimitRange + default-deny NP. cert-manager CRDs are needed by ingress. AWS Load Balancer Controller must exist before Services ask it to reconcile NLBs.</td>
 </tr>
 <tr>
 <td><strong>1</strong></td>
@@ -1200,29 +1244,48 @@
 </tr>
 <tr>
 <td><strong>2</strong></td>
-<td><code>kube-prometheus-stack</code>, <code>loki</code></td>
-<td>Observability stack.</td>
+<td><code>kube-prometheus-stack</code>, <code>loki</code>, <code>external-dns</code></td>
+<td>Observability stack plus DNS reconciliation for public Ingress hostnames.</td>
 </tr>
 <tr>
 <td><strong>3</strong></td>
 <td><code>prometheus-adapter</code>, <code>kyverno</code></td>
 <td>prometheus-adapter needs Prometheus; kyverno uses <code>ServerSideApply=true</code>.</td>
 </tr>
+<tr>
+<td><strong>4</strong></td>
+<td><code>demo-api-dev</code>, <code>demo-api-prod</code></td>
+<td>App layer; needs cert-manager (TLS), prometheus-adapter (HPA metric), and the KSOPS-decrypted DB secret all already in place.</td>
+</tr>
 </tbody>
 </table>
-<p>Live evidence:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>NAMESPACE   KIND          NAME                    SYNC STATUS   HEALTH STATUS
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>argocd      Application   cert-manager            Synced        Healthy
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>argocd      Application   ingress-nginx           Synced        Progressing
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>argocd      Application   kube-prometheus-stack   Synced        Progressing
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>argocd      Application   kyverno                 Synced        Healthy
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>argocd      Application   loki                    Unknown       Healthy
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>argocd      Application   namespaces              Synced        Healthy
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>argocd      Application   priority-classes        Synced        Healthy
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>argocd      Application   prometheus-adapter      Synced        Healthy
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>argocd      Application   root                    Synced        Healthy
+<p>Final live evidence (2026-07-07):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>NAME                           SYNC STATUS   HEALTH STATUS
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>aws-load-balancer-controller   Synced        Healthy
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>cert-manager                   Synced        Healthy
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>demo-api-dev                   Synced        Healthy
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>demo-api-prod                  Synced        Healthy
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>external-dns                   Synced        Healthy
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>ingress-nginx                  Synced        Healthy
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>kube-prometheus-stack          Synced        Healthy
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>kyverno                        Synced        Healthy
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>loki                           Synced        Healthy
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>namespaces                     Synced        Healthy
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>priority-classes               Synced        Healthy
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>prometheus-adapter             Synced        Healthy
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>root                           Synced        Healthy
 </span></code></pre></div>
-<p><code>loki</code> Unknown is real drift — see <a href="../05-platform/#loki">Platform Layer → loki</a>.</p>
+<p>The interesting part is not only that every app is green. It is that previous failure modes are now
+closed: Loki renders, ingress-nginx has an NLB, cert-manager has valid certificates, external-dns
+keeps Route 53 records current, Kyverno cleanup jobs no longer fill the apps node, and both demo-api
+overlays decrypt their KSOPS secret and become Healthy.</p>
+<h2 id="argo-cds-own-helm-values-changed-for-ksops">Argo CD's own Helm values changed for KSOPS<a class="headerlink" href="#argo-cds-own-helm-values-changed-for-ksops" title="Permanent link">&para;</a></h2>
+<p><code>platform/argocd/values.yaml</code> gained <code>configs.cm.kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"</code>
+and a <code>viaductoss/ksops</code> init container on <code>repoServer</code>, plus a <code>repoServer.serviceAccount.annotations</code>
+IRSA role ARN (from the new <code>module "irsa_argocd_repo_server"</code>). <strong>Because Argo CD itself is
+Terraform-managed, not GitOps-managed</strong>, none of this takes effect on a Git push/sync — it requires
+<code>terraform apply</code> (specifically updates <code>helm_release.argocd</code> in place). This was the actual mechanism
+behind this session's "KSOPS infra" apply: 0 resources added, 1 changed (the helm_release).</p>
 <h2 id="two-non-obvious-details">Two non-obvious details<a class="headerlink" href="#two-non-obvious-details" title="Permanent link">&para;</a></h2>
 <h3 id="multi-source-with-values-ref">Multi-source with <code>$values</code> ref<a class="headerlink" href="#multi-source-with-values-ref" title="Permanent link">&para;</a></h3>
 <p>Each platform Application declares <strong>both</strong> the upstream Helm chart and this repo as a <code>$values</code> source. Argo CD merges your <code>platform/&lt;component&gt;/values.yaml</code> into the chart at render time.</p>
@@ -1256,6 +1319,13 @@
 <li><code>namespaces.yaml</code> (sync-wave <code>0</code>)</li>
 </ul>
 <p>The root App-of-Apps picks them up automatically because it watches <code>argocd/platform/*.yaml</code>.</p>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/">Argo CD cluster bootstrapping</a> — App-of-Apps pattern.</li>
+<li><a href="https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/">Argo CD sync waves</a> — dependency ordering through annotations.</li>
+<li><a href="https://argo-cd.readthedocs.io/en/stable/user-guide/helm/">Argo CD Helm values</a> — how Helm value files are passed during render.</li>
+<li><a href="https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/">Argo CD multiple sources</a> — the <code>$values</code> pattern used by this repo.</li>
+</ul>
 
 
 

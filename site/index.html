@@ -470,10 +470,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#live-cluster-facts" class="md-nav__link">
+  <a href="#final-live-cluster-facts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Live cluster facts
+        Final live cluster facts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#learning-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Learning map
       
     </span>
   </a>
@@ -1069,10 +1080,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#live-cluster-facts" class="md-nav__link">
+  <a href="#final-live-cluster-facts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Live cluster facts
+        Final live cluster facts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#learning-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Learning map
       
     </span>
   </a>
@@ -1111,10 +1133,17 @@
 
 
 <h1 id="k8s-aws-platform">k8s-aws-platform<a class="headerlink" href="#k8s-aws-platform" title="Permanent link">&para;</a></h1>
-<p>AWS EKS showcase platform — built as interview-defensible deep dive for the SciPlay Senior K8s / DevOps Engineer role. Fully bootstrapped, GitOps-managed, observable, and policy-enforced.</p>
+<p>AWS EKS showcase platform. Fully bootstrapped, GitOps-managed, observable, policy-enforced, and publicly reachable over TLS.</p>
 <div class="admonition success">
-<p class="admonition-title">Platform state (2026-06-15)</p>
-<p>All Argo CD Applications Synced/Healthy except <strong><code>loki</code></strong> (known Helm values bug — see <a href="walkthrough/05-platform/#loki">Platform Layer</a>). <code>make verify</code> reports all checks passing.</p>
+<p class="admonition-title">Platform state (2026-07-07)</p>
+<p>The platform is configured end-to-end. All Argo CD Applications are <code>Synced</code>/<code>Healthy</code>,
+there are no Pending pods, public DNS resolves through Route 53, TLS works through
+ingress-nginx and cert-manager, and both demo-api readiness endpoints return HTTP 200.</p>
+<p>Terraform applies should currently run from the allowed operator IP. Standard GitHub-hosted
+runners can assume the AWS role, but they cannot reach the EKS API while
+<code>cluster_endpoint_public_access_cidrs</code> is locked to a single <code>/32</code>. Use a self-hosted runner,
+a larger GitHub runner with static IPs, or a local apply for Kubernetes/Helm-backed Terraform
+resources.</p>
 </div>
 <h2 id="what-this-platform-is">What this platform is<a class="headerlink" href="#what-this-platform-is" title="Permanent link">&para;</a></h2>
 <p>A <strong>production-shaped 12-factor web service stack on AWS EKS</strong>:</p>
@@ -1122,7 +1151,7 @@
 <li><strong>Frontend</strong>: ingress-nginx behind an AWS NLB, TLS from Let's Encrypt (DNS-01 via Route 53)</li>
 <li><strong>App</strong>: Go REST API (<code>apps/demo-api/</code>) — <code>/healthz</code>, <code>/readyz</code>, <code>/metrics</code>, <code>/api/v1/items</code></li>
 <li><strong>State</strong>: RDS PostgreSQL 16, SSL-only, isolated subnets</li>
-<li><strong>Ops</strong>: Argo CD GitOps, kube-prometheus-stack + Loki + Grafana, HPA on CPU + custom <code>http_requests_per_second</code></li>
+<li><strong>Ops</strong>: Argo CD GitOps, external-dns, AWS Load Balancer Controller, kube-prometheus-stack + Loki + Grafana, HPA on CPU + custom <code>http_requests_per_second</code></li>
 <li><strong>Policy</strong>: Kyverno 3 ClusterPolicies, Pod Security Standards (<code>baseline</code> dev / <code>restricted</code> prod), default-deny NetworkPolicies</li>
 <li><strong>Secrets</strong>: SOPS + AWS KMS via KSOPS plugin in Argo CD repo-server</li>
 <li><strong>CI/CD</strong>: GitHub Actions via OIDC federation — no long-lived AWS keys</li>
@@ -1193,8 +1222,8 @@
     cm -.requests cert.-&gt; le
     cm -.injects TLS Secret.-&gt; ingress</code></pre>
 <p>For the layered view with VPC subnets, KMS, ECR, etc., see <a href="architecture/">Architecture</a>.</p>
-<h2 id="live-cluster-facts">Live cluster facts<a class="headerlink" href="#live-cluster-facts" title="Permanent link">&para;</a></h2>
-<p>Verified via the read-only kubernetes-mcp-server against the live cluster on 2026-06-15:</p>
+<h2 id="final-live-cluster-facts">Final live cluster facts<a class="headerlink" href="#final-live-cluster-facts" title="Permanent link">&para;</a></h2>
+<p>Verified against the live cluster and AWS APIs on 2026-07-07:</p>
 <table>
 <thead>
 <tr>
@@ -1205,27 +1234,79 @@
 <tbody>
 <tr>
 <td>Nodes</td>
-<td>2 Ready: <code>t3.large</code> ON_DEMAND (platform), <code>t3.medium</code> SPOT (apps), both in <code>eu-west-1a</code></td>
+<td>2 Ready: one <code>t3.large</code> ON_DEMAND platform node and one <code>t3.medium</code> SPOT apps node</td>
 </tr>
 <tr>
 <td>Argo CD Applications</td>
-<td>9 total — 7 Synced/Healthy, <code>kube-prometheus-stack</code> + <code>ingress-nginx</code> Progressing (pods Running), <code>loki</code> Unknown (values bug)</td>
+<td>13 total — all <code>Synced</code>/<code>Healthy</code>: root, namespaces, priority-classes, cert-manager, ingress-nginx, aws-load-balancer-controller, external-dns, kube-prometheus-stack, loki, prometheus-adapter, kyverno, demo-api-dev, demo-api-prod</td>
+</tr>
+<tr>
+<td>Pending pods</td>
+<td>None</td>
 </tr>
 <tr>
 <td>StorageClass</td>
-<td><code>gp3 (default)</code> via <code>ebs.csi.aws.com</code>; legacy <code>gp2</code> retained</td>
+<td><code>gp3 (default)</code> via <code>ebs.csi.aws.com</code>, <strong>managed in Terraform</strong> (<code>kubernetes_storage_class_v1.gp3</code>, imported); legacy <code>gp2</code> retained</td>
 </tr>
 <tr>
-<td>cert-manager IRSA</td>
-<td>SA annotated with <code>arn:aws:iam::649822034735:role/k8s-platform-dev-cert-manager</code></td>
+<td>DNS/TLS</td>
+<td><code>argocd.k8s.gaiaderma.com</code>, <code>demo-dev.k8s.gaiaderma.com</code>, <code>demo.k8s.gaiaderma.com</code>, and <code>grafana.k8s.gaiaderma.com</code> resolve through Route 53 and serve HTTPS</td>
+</tr>
+<tr>
+<td>cert-manager / external-dns IRSA</td>
+<td>ServiceAccounts assume scoped AWS roles for Route 53 changes</td>
 </tr>
 <tr>
 <td>Custom metrics API</td>
 <td><code>v1beta1.custom.metrics.k8s.io</code> Available, backed by <code>monitoring/prometheus-adapter</code></td>
 </tr>
 <tr>
-<td>Default-deny NetworkPolicy</td>
-<td>Live in <code>dev</code> namespace</td>
+<td>Known caveat</td>
+<td><code>terraform-aws-eks</code> ignores managed node group <code>desired_size</code> drift after creation; config says apps desired size <code>2</code>, live AWS currently reports desired size <code>1</code>. This is acceptable while there are no Pending pods, but document it before claiming Terraform manages runtime capacity.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="learning-map">Learning map<a class="headerlink" href="#learning-map" title="Permanent link">&para;</a></h2>
+<p>Each walkthrough page answers one interview-grade question:</p>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>What it teaches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="walkthrough/01-project-shape/">1. Project Shape</a></td>
+<td>Why platform/config and app source live in separate repos.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/02-terraform/">2. Terraform Foundation</a></td>
+<td>Remote state, S3 locking, thin modules, IRSA, Route 53, and Terraform caller identity pitfalls.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/03-eks/">3. EKS Shape</a></td>
+<td>Endpoint exposure, node groups, IMDSv2, VPC CNI, EBS CSI, and the nodegroup desired-size caveat.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/04-argocd/">4. Argo CD</a></td>
+<td>Terraform bootstrap, app-of-apps, sync waves, multi-source Helm, and KSOPS.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/05-platform/">5. Platform Layer</a></td>
+<td>ingress-nginx + NLB, AWS Load Balancer Controller, cert-manager, external-dns, Prometheus, Loki, adapter, and Kyverno.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/06-app/">6. App Layer</a></td>
+<td>Kustomize overlays, SOPS secrets, probes, HPA, PodMonitor, PSS, NetworkPolicy, and PriorityClasses.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/07-cicd/">7. CI/CD</a></td>
+<td>GitHub OIDC, Terraform Plan/Apply, manifest validation, app image publishing, and why hosted runners cannot apply Kubernetes-backed resources here.</td>
+</tr>
+<tr>
+<td><a href="walkthrough/08-security/">8. Security Story</a></td>
+<td>The defense-in-depth narrative tying AWS, Kubernetes, GitOps, admission, network, and supply-chain controls together.</td>
 </tr>
 </tbody>
 </table>

@@ -80,3 +80,4 @@ aws logs filter-log-events \
 | Argo CD app Out of Sync | `argocd app diff <name>` or click "App Diff" in UI. Cluster drift or manifest change? |
 | Argo CD app Unknown | Helm template error or repo-server can't reach git. Check `kubectl logs -n argocd deploy/argocd-repo-server`. |
 | Cert not issuing | `kubectl describe certificate`, then `certificaterequest`, then `order`, then `challenge`. The chain tells you which step failed. |
+| Terraform changed node group `desired_size` but AWS still shows old desired size | The upstream `terraform-aws-eks` managed-node-group module ignores `scaling_config[0].desired_size` after creation. Use `aws eks update-nodegroup-config` for runtime capacity, or design a separate autoscaling/capacity path. |

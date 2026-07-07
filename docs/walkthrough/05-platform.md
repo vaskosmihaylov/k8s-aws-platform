@@ -6,12 +6,37 @@ Each platform component is upstream Helm chart + a `values.yaml` in `platform/<c
 
 `platform/ingress-nginx/values.yaml`:
 
-- **NLB annotations**: `service.beta.kubernetes.io/aws-load-balancer-type: nlb` — L4 LB
+- **NLB annotations**: `service.beta.kubernetes.io/aws-load-balancer-type: external`,
+  `aws-load-balancer-scheme: internet-facing`, `aws-load-balancer-nlb-target-type: ip`
 - **Metrics**: `metrics.enabled=true`, `metrics.serviceMonitor.enabled=true`
 - **Platform pinning**: `nodeSelector` + `tolerations` keep it on platform nodes
+- **Admission webhook certgen placement**: patch Jobs also run on the platform node so they do not
+  get stuck behind apps-node pod pressure
 
 !!! question "Why NLB not ALB?"
     NLB is L4 — TLS termination happens at ingress-nginx, not the LB. Lets ingress-nginx handle SNI, cert rotation via cert-manager, ModSecurity, etc. ALB terminates TLS at AWS, which limits in-cluster cert flexibility.
+
+## AWS Load Balancer Controller
+
+This is the controller that made the ingress-nginx `LoadBalancer` Service actually provision an AWS
+NLB. The in-tree AWS cloud provider cannot satisfy the combination used here:
+
+- `aws-load-balancer-type: external`
+- `aws-load-balancer-nlb-target-type: ip`
+
+The split is deliberate:
+
+- Terraform owns AWS IAM: vendored upstream IAM policy JSON, `aws_iam_policy.aws_lb_controller`,
+  and `module.irsa_aws_lb_controller`.
+- Argo CD owns the Helm chart: `argocd/platform/aws-load-balancer-controller.yaml` plus
+  `platform/aws-load-balancer-controller/values.yaml`.
+
+Two important fixes made it stable:
+
+1. `vpcId` is pinned in values. Auto-discovery through IMDS fails from pods because node metadata
+   uses IMDSv2 with `hop_limit=1`; raising the hop limit would expose node-role credentials to pods.
+2. Argo CD ignores webhook TLS Secret data and webhook `caBundle` drift because the chart/controller
+   manage those values out-of-band.
 
 ## cert-manager
 
@@ -23,6 +48,37 @@ Each platform component is upstream Helm chart + a `values.yaml` in `platform/<c
     `argocd/platform/cert-manager.yaml` had **both** a singular `source:` (no `$values`) and a plural `sources:` (with `$values`) — an invalid spec where the plural happened to win, but if the singular ever won, cert-manager would install with default Helm values (no IRSA → DNS-01 broken). The stray singular block has been removed; committed and verified live (root reconciled, `cert-manager` Application Healthy with only the plural block in spec).
 
 - **ClusterIssuers**: two issuers (`letsencrypt-staging`, `letsencrypt-prod`) are embedded directly in `platform/cert-manager/values.yaml` via `extraObjects` — both DNS-01 over Route53, scoped to the same `hostedZoneID` the IRSA policy grants. demo-api's Ingress uses the staging issuer first (avoids Let's Encrypt rate limits) before switching to prod.
+
+Live certificates are Ready for Argo CD and both demo-api environments.
+
+## external-dns
+
+`external-dns` watches Ingress resources and reconciles Route 53 records for `gaiaderma.com`.
+
+Key settings:
+
+- `provider.name: aws`
+- `sources: [ingress]`
+- `domainFilters: [gaiaderma.com]`
+- `registry: txt` with `txtOwnerId: k8s-platform-dev`
+- `policy: upsert-only`
+- `aws-zone-type: public`
+- `prefer-alias: true`
+- IRSA ServiceAccount annotation for `k8s-platform-dev-external-dns`
+
+Final live signal:
+
+```
+external-dns ... 1/1 Running
+All records are already up to date
+```
+
+Public hostnames currently resolve and serve HTTPS:
+
+- `argocd.k8s.gaiaderma.com`
+- `demo-dev.k8s.gaiaderma.com`
+- `demo.k8s.gaiaderma.com`
+- `grafana.k8s.gaiaderma.com`
 
 ## kube-prometheus-stack
 
@@ -135,7 +191,7 @@ This serves the `v1beta1.custom.metrics.k8s.io` APIService — confirmed live an
 !!! question "Why Kyverno over OPA / Gatekeeper?"
     The policy language is **YAML / JSON pattern matching**, not Rego. Lower-friction onboarding. Gatekeeper is more powerful for complex constraints but the Rego learning curve is real. Kyverno covers ~90% of K8s policy use cases.
 
-### Cleanup CronJob image fix (2026-06-22)
+### Cleanup CronJob image fix
 
 Kyverno's chart ships 5 cleanup `CronJob`s (admission/cluster-admission/update-requests/ephemeral/
 cluster-ephemeral reports) plus 2 helm-hook Jobs, all defaulting to `bitnami/kubectl:1.28.5`.
@@ -148,9 +204,14 @@ Fix in `platform/kyverno/values.yaml`: override all 7 image refs to `bitnamilega
 cleanup script needs; `registry.k8s.io/kubectl` is distroless/no-shell and would break it).
 Verified via `helm template`.
 
-!!! warning "Live cluster note (2026-06-22)"
-    Before this fix was pushed, the broken CronJobs filled the `apps` node's pod-capacity limit
-    (17 pods on a `t3.medium`, ENI-bound) by continuously respawning `ImagePullBackOff` pods —
-    blocking an unrelated `helm_release.argocd` Terraform apply's pre-upgrade hook from
-    scheduling. All 5 CronJobs were **suspended live** as a stopgap. They need to be resumed
-    once this fix is pushed and synced.
+Final state: `kyverno` is `Synced`/`Healthy`, its controllers run on the platform node, and the
+cluster has no Pending pods.
+
+## Upstream docs to read
+
+- [AWS Load Balancer Controller](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) — how Services and Ingresses become AWS load balancers.
+- [AWS Load Balancer Controller Service annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/) — the `external` and `nlb-target-type: ip` annotations.
+- [cert-manager Route 53 DNS-01](https://cert-manager.io/docs/configuration/acme/dns01/route53/) — Route 53 solver configuration for ACME challenges.
+- [external-dns AWS tutorial](https://kubernetes-sigs.github.io/external-dns/latest/docs/tutorials/aws/) — Route 53 record reconciliation.
+- [Prometheus Operator API](https://prometheus-operator.dev/docs/developer/getting-started/) — why `ServiceMonitor`, `PodMonitor`, and `PrometheusRule` exist.
+- [Kyverno policies](https://kyverno.io/docs/writing-policies/) — pattern-based admission policy without Rego.

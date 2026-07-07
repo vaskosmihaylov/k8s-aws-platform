@@ -32,38 +32,37 @@ The annotation `argocd.argoproj.io/sync-wave: "<N>"` controls order. Lower wave 
 | Wave | Applications | Why this wave |
 |---|---|---|
 | **-1** | `priority-classes` | Must exist before any pod claims a class. |
-| **0** | `namespaces`, `cert-manager` | Namespaces have PSS labels + ResourceQuota + LimitRange + default-deny NP. cert-manager CRDs are needed by ingress. |
+| **0** | `namespaces`, `cert-manager`, `aws-load-balancer-controller` | Namespaces have PSS labels + ResourceQuota + LimitRange + default-deny NP. cert-manager CRDs are needed by ingress. AWS Load Balancer Controller must exist before Services ask it to reconcile NLBs. |
 | **1** | `ingress-nginx` | Uses `platform-critical` PriorityClass from wave -1. |
-| **2** | `kube-prometheus-stack`, `loki` | Observability stack. |
+| **2** | `kube-prometheus-stack`, `loki`, `external-dns` | Observability stack plus DNS reconciliation for public Ingress hostnames. |
 | **3** | `prometheus-adapter`, `kyverno` | prometheus-adapter needs Prometheus; kyverno uses `ServerSideApply=true`. |
 | **4** | `demo-api-dev`, `demo-api-prod` | App layer; needs cert-manager (TLS), prometheus-adapter (HPA metric), and the KSOPS-decrypted DB secret all already in place. |
 
-Live evidence (2026-06-22, after the kyverno/gp3/KSOPS handoff session):
+Final live evidence (2026-07-07):
 
 ```
-NAMESPACE   KIND          NAME                    SYNC STATUS   HEALTH STATUS
-argocd      Application   cert-manager            Synced        Healthy
-argocd      Application   demo-api-dev            OutOfSync     Degraded
-argocd      Application   demo-api-prod           OutOfSync     Degraded
-argocd      Application   ingress-nginx           Synced        Progressing
-argocd      Application   kube-prometheus-stack   Synced        Progressing
-argocd      Application   kyverno                 Synced        Healthy
-argocd      Application   loki                    Synced        Healthy
-argocd      Application   namespaces              Synced        Healthy
-argocd      Application   priority-classes        Synced        Healthy
-argocd      Application   prometheus-adapter      Synced        Healthy
-argocd      Application   root                    Synced        Healthy
+NAME                           SYNC STATUS   HEALTH STATUS
+aws-load-balancer-controller   Synced        Healthy
+cert-manager                   Synced        Healthy
+demo-api-dev                   Synced        Healthy
+demo-api-prod                  Synced        Healthy
+external-dns                   Synced        Healthy
+ingress-nginx                  Synced        Healthy
+kube-prometheus-stack          Synced        Healthy
+kyverno                        Synced        Healthy
+loki                           Synced        Healthy
+namespaces                     Synced        Healthy
+priority-classes               Synced        Healthy
+prometheus-adapter             Synced        Healthy
+root                           Synced        Healthy
 ```
 
-`loki` was `Unknown` due to a chart values bug — now fixed; see [Platform Layer → loki](05-platform.md#loki).
+The interesting part is not only that every app is green. It is that previous failure modes are now
+closed: Loki renders, ingress-nginx has an NLB, cert-manager has valid certificates, external-dns
+keeps Route 53 records current, Kyverno cleanup jobs no longer fill the apps node, and both demo-api
+overlays decrypt their KSOPS secret and become Healthy.
 
-`demo-api-{dev,prod}` are `OutOfSync`/`Degraded` because, as of this snapshot, none of the
-handoff-session changes (the demo-api image, the ConfigMap/Secret/PodMonitor/Ingress manifests, the
-KSOPS wiring itself) are pushed yet — Argo CD is still tracking the last-synced commit
-(`beede5c`), which predates all of it. Expected to resolve to Synced/Healthy once pushed and
-synced; see [App Layer](06-app.md) for everything that's now wired.
-
-## ArgoCD's own Helm values changed for KSOPS
+## Argo CD's own Helm values changed for KSOPS
 
 `platform/argocd/values.yaml` gained `configs.cm.kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"`
 and a `viaductoss/ksops` init container on `repoServer`, plus a `repoServer.serviceAccount.annotations`
@@ -119,3 +118,10 @@ spec:
 - `namespaces.yaml` (sync-wave `0`)
 
 The root App-of-Apps picks them up automatically because it watches `argocd/platform/*.yaml`.
+
+## Upstream docs to read
+
+- [Argo CD cluster bootstrapping](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/) — App-of-Apps pattern.
+- [Argo CD sync waves](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/) — dependency ordering through annotations.
+- [Argo CD Helm values](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/) — how Helm value files are passed during render.
+- [Argo CD multiple sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/) — the `$values` pattern used by this repo.

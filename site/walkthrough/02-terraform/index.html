@@ -662,6 +662,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ksops-a-kms-key-irsa-for-the-argo-cd-repo-server-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KSOPS: a KMS key + IRSA for the Argo CD repo-server itself
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gp3-default-storageclass-now-in-terraform-not-a-manual-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gp3 default StorageClass — now in Terraform, not a manual step
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -683,6 +705,45 @@
     <span class="md-ellipsis">
       
         GitHub OIDC — no long-lived AWS keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitHub OIDC — no long-lived AWS keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terraform-caller-identity-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terraform caller identity drift
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-reachability-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI reachability boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1146,6 +1207,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ksops-a-kms-key-irsa-for-the-argo-cd-repo-server-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KSOPS: a KMS key + IRSA for the Argo CD repo-server itself
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gp3-default-storageclass-now-in-terraform-not-a-manual-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gp3 default StorageClass — now in Terraform, not a manual step
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1167,6 +1250,45 @@
     <span class="md-ellipsis">
       
         GitHub OIDC — no long-lived AWS keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitHub OIDC — no long-lived AWS keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terraform-caller-identity-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terraform caller identity drift
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-reachability-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI reachability boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-docs-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream docs to read
       
     </span>
   </a>
@@ -1197,16 +1319,18 @@
 <p>The AWS layer is built with Terraform in two stages: state backend first (local), then the actual stack (remote).</p>
 <h2 id="two-stage-state-the-chicken-and-egg-fix">Two-stage state — the chicken-and-egg fix<a class="headerlink" href="#two-stage-state-the-chicken-and-egg-fix" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>terraform/bootstrap/        ┐
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                            │  LOCAL state. Creates S3 bucket + DynamoDB table.
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                            │  prevent_destroy on the bucket so you can&#39;t
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                            │  accidentally terraform-destroy your own state.
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                            ┘
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>terraform/environments/dev/ ┐
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                            │  REMOTE state in that S3 bucket.
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                            │  backend &quot;s3&quot; { use_lockfile = true }
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                            │  (S3-native lock; dynamodb_table is deprecated.)
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                            ┘
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                            │  LOCAL state. Creates S3 bucket, bucket versioning,
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                            │  encryption, public-access block, and a legacy
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                            │  DynamoDB lock table. The bucket has prevent_destroy
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                            │  so you can&#39;t
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                            │  accidentally terraform-destroy your own state.
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                            ┘
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>terraform/environments/dev/ ┐
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                            │  REMOTE state in that S3 bucket.
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                            │  backend &quot;s3&quot; { use_lockfile = true }
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                            │  S3-native lock files are the active lock mechanism.
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                            ┘
 </span></code></pre></div>
 <div class="admonition question">
 <p class="admonition-title">Interview probe</p>
@@ -1223,9 +1347,16 @@
 <li>VPC flow logs to CloudWatch</li>
 </ul>
 <h3 id="kms-terraformmoduleskms">KMS (<code>terraform/modules/kms/</code>)<a class="headerlink" href="#kms-terraformmoduleskms" title="Permanent link">&para;</a></h3>
-<p>Separate keys per concern (EKS envelope encryption, RDS at-rest).</p>
-<p>Reality is <strong>3 keys</strong> because the EKS community module also creates its own internal key.
-Easy fix: set <code>create_kms_key = false</code> in the EKS wrapper — listed as a follow-up.</p>
+<p>Separate keys per concern:</p>
+<ul>
+<li><code>alias/k8s-platform-dev-eks</code> — passed to the EKS module for Kubernetes Secret envelope encryption.</li>
+<li><code>alias/k8s-platform-dev-rds</code> — RDS encryption at rest.</li>
+<li><code>alias/k8s-platform-sops</code> — SOPS/KSOPS decryption by the Argo CD repo-server.</li>
+</ul>
+<p>The upstream EKS module also creates an internal KMS key for its own cluster encryption policy path.
+That key's administrators are explicit now: the human admin user plus the Terraform GitHub Actions
+role. This avoids the caller-dependent drift where a local plan and a CI plan alternated the key
+administrator based on who ran Terraform.</p>
 <h3 id="rds-terraformmodulesrds">RDS (<code>terraform/modules/rds/</code>)<a class="headerlink" href="#rds-terraformmodulesrds" title="Permanent link">&para;</a></h3>
 <p><strong>Raw resources</strong> — not a community wrapper. RDS knobs are too opinionated to abstract well.</p>
 <ul>
@@ -1235,17 +1366,21 @@ Easy fix: set <code>create_kms_key = false</code> in the EKS wrapper — listed 
 <li>Encryption at rest with the RDS KMS key</li>
 </ul>
 <h3 id="irsa">IRSA (<code>terraform/modules/irsa/</code>)<a class="headerlink" href="#irsa" title="Permanent link">&para;</a></h3>
-<p>The IAM-for-pods primitive used by cert-manager, external-dns, EBS CSI, Kyverno cleanup, and others.</p>
+<p>The IAM-for-pods primitive used by cert-manager, external-dns, EBS CSI, AWS Load Balancer Controller,
+and Argo CD repo-server.</p>
 <p>The module is a <strong>factory</strong>: caller passes a namespace + SA name + IAM policy document; the module mints an IAM role with the correct trust policy bound to the EKS OIDC provider.</p>
 <div class="language-hcl highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kr">module</span><span class="w"> </span><span class="nv">&quot;irsa_cert_manager&quot;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="na">source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;../../modules/irsa&quot;</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="na">role_name</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;${local.name_prefix}-cert-manager&quot;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="na">cluster_oidc_arn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">module.eks.oidc_provider_arn</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="na">namespace</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cert-manager&quot;</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="na">service_account</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cert-manager&quot;</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="na">policy_json</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="nv">data.aws_iam_policy_document.cert_manager.json</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="na">role_name</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;${local.name_prefix}-dev-cert-manager&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="na">oidc_provider_url</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="nf">trimprefix</span><span class="p">(</span><span class="nv">module.eks.cluster_oidc_issuer_url</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;https://&quot;</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="na">oidc_provider_arn</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="nv">module.eks.oidc_provider_arn</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="na">namespace</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cert-manager&quot;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="na">service_account_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cert-manager&quot;</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nb">policy_arns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="na">cert_manager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">aws_iam_policy.cert_manager.arn</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The annotation on the ServiceAccount inside the cluster is what wires the two together:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -1253,6 +1388,18 @@ Easy fix: set <code>create_kms_key = false</code> in the EKS wrapper — listed 
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">eks.amazonaws.com/role-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:iam::649822034735:role/k8s-platform-dev-cert-manager</span>
 </span></code></pre></div>
 <p><strong>This is the AWS pattern that has no clean on-prem equivalent</strong> — see <a href="../../operating/onprem-comparison/">On-Prem Comparison</a>.</p>
+<h3 id="ksops-a-kms-key-irsa-for-the-argo-cd-repo-server-itself">KSOPS: a KMS key + IRSA for the Argo CD repo-server itself<a class="headerlink" href="#ksops-a-kms-key-irsa-for-the-argo-cd-repo-server-itself" title="Permanent link">&para;</a></h3>
+<p>Same factory, new caller — <code>module "irsa_argocd_repo_server"</code> grants <code>kms:Decrypt</code>/<code>kms:DescribeKey</code>
+on a dedicated <code>module "kms_sops"</code> key (alias <code>k8s-platform-sops</code>, the same one referenced in
+<code>.sops.yaml</code>'s <code>creation_rules</code>). Unlike the other IRSA roles above, this one is for a <strong>platform
+control-plane component</strong>, not an app — it's how Argo CD's own repo-server decrypts SOPS-encrypted
+Secret manifests via the KSOPS kustomize exec plugin before generating the final manifest. See
+<a href="../06-app/#secrets">App Layer → Secrets</a> for the end-to-end flow.</p>
+<h3 id="gp3-default-storageclass-now-in-terraform-not-a-manual-step"><code>gp3</code> default StorageClass — now in Terraform, not a manual step<a class="headerlink" href="#gp3-default-storageclass-now-in-terraform-not-a-manual-step" title="Permanent link">&para;</a></h3>
+<p><code>kubernetes_storage_class_v1.gp3</code> in <code>terraform/environments/dev/main.tf</code> (the <code>hashicorp/kubernetes</code>
+provider, already configured for <code>helm_release.argocd</code>). Originally created by hand post-bootstrap;
+imported (<code>terraform import kubernetes_storage_class_v1.gp3 gp3</code>) then brought under management —
+<code>terraform plan</code> now shows no drift for it.</p>
 <h2 id="route-53-the-apex-vs-subdomain-story">Route 53 — the apex-vs-subdomain story<a class="headerlink" href="#route-53-the-apex-vs-subdomain-story" title="Permanent link">&para;</a></h2>
 <p>The original plan was to delegate the <code>k8s.gaiaderma.com</code> <em>subdomain</em> and leave the rest on Hostinger.</p>
 <p><strong>Hostinger does not expose per-subdomain NS delegation</strong> for this domain, so the entire apex <code>gaiaderma.com</code> was delegated to AWS via Hostinger custom nameservers.</p>
@@ -1266,7 +1413,31 @@ Easy fix: set <code>create_kms_key = false</code> in the EKS wrapper — listed 
 <p>This is the <em>correct</em> call. You explain the registrar constraint forced apex delegation, and you note that IRSA policy scope can still be narrowed.</p>
 </div>
 <h2 id="github-oidc-no-long-lived-aws-keys">GitHub OIDC — no long-lived AWS keys<a class="headerlink" href="#github-oidc-no-long-lived-aws-keys" title="Permanent link">&para;</a></h2>
-<p>A single IAM role assumed by GitHub Actions via OpenID Connect. The trust policy in <code>terraform/environments/dev/data.tf</code> accepts three <code>sub</code> forms:</p>
+<p>Two IAM roles are assumed by GitHub Actions via OpenID Connect:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Used by</th>
+<th>Scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k8s-platform-dev-github-actions</code></td>
+<td>app repo image build/push and config-repo PR plan</td>
+<td>ECR push, S3 state object access, EKS describe</td>
+</tr>
+<tr>
+<td><code>k8s-platform-dev-terraform-github-actions</code></td>
+<td>protected <code>terraform-apply.yml</code></td>
+<td>Terraform admin role plus EKS access entry / cluster-admin policy</td>
+</tr>
+</tbody>
+</table>
+<p>The trust policies in <code>terraform/environments/dev/data.tf</code> intentionally differ. The Terraform role
+accepts only the protected production environment subject; the app/ECR role accepts the app repo main
+branch plus narrower config-repo subjects:</p>
 <table>
 <thead>
 <tr>
@@ -1277,20 +1448,49 @@ Easy fix: set <code>create_kms_key = false</code> in the EKS wrapper — listed 
 <tbody>
 <tr>
 <td><code>repo:&lt;org&gt;/k8s-aws-platform:environment:production</code></td>
-<td><code>terraform-apply.yml</code> (push to main, declares <code>environment: production</code>)</td>
+<td>Terraform Apply production environment</td>
 </tr>
 <tr>
 <td><code>repo:&lt;org&gt;/k8s-aws-platform:pull_request</code></td>
-<td><code>terraform-plan.yml</code> (PR builds)</td>
+<td>Config-repo PR plan / validation role</td>
 </tr>
 <tr>
 <td><code>repo:&lt;org&gt;/k8s-demo-api:ref:refs/heads/main</code></td>
-<td>App repo CI when it lands</td>
+<td>App repo CI image build/push</td>
 </tr>
 </tbody>
 </table>
-<p><code>AWS_ROLE_ARN</code> is a <strong>repo-level GitHub variable</strong> (not a secret — ARNs aren't sensitive), so both workflows see it without per-environment duplication. Only one GitHub Environment exists (<code>production</code>).</p>
+<p><code>TERRAFORM_AWS_ROLE_ARN</code> is the repo variable used by Terraform Apply. <code>AWS_ROLE_ARN</code> remains for
+the narrower app/ECR role and the PR plan workflow. ARNs are not secrets; the security boundary is
+the OIDC trust condition plus the IAM policy.</p>
+<h3 id="terraform-caller-identity-drift">Terraform caller identity drift<a class="headerlink" href="#terraform-caller-identity-drift" title="Permanent link">&para;</a></h3>
+<p>The upstream EKS module's <code>enable_cluster_creator_admin_permissions = true</code> creates a
+<code>cluster_creator</code> access entry for <strong>the identity currently running Terraform</strong>. That was fine while
+all plans ran locally, but once GitHub Actions ran the plan, Terraform wanted to replace the human
+admin access entry with the CI role.</p>
+<p>The fix is to make access entries explicit in the wrapper:</p>
+<ul>
+<li><code>enable_cluster_creator_admin_permissions = false</code></li>
+<li><code>access_entries.cluster_creator.principal_arn = arn:aws:iam::649822034735:user/vasko-k8s-platform-admin</code></li>
+<li>a separate <code>aws_eks_access_entry.terraform_github_actions</code> grants the CI role cluster-admin</li>
+</ul>
+<p>This keeps local and CI plans stable.</p>
+<h3 id="ci-reachability-boundary">CI reachability boundary<a class="headerlink" href="#ci-reachability-boundary" title="Permanent link">&para;</a></h3>
+<p>GitHub-hosted runners can assume AWS roles, but standard runners cannot reach the Kubernetes API
+because the public EKS endpoint is allowlisted to a single operator <code>/32</code>. Do not widen the endpoint
+to all GitHub Actions IP ranges. Use local apply, a self-hosted runner inside the VPC/network path,
+or a GitHub larger runner with static IP ranges.</p>
+<p>The current PR plan workflow remains intentionally lower-privilege. If you want reliable remote
+plans, add a dedicated read-only Terraform plan role and run it from a network path that can reach
+the EKS API.</p>
 <p>See <a href="../07-cicd/">CI/CD</a> for the workflow detail.</p>
+<h2 id="upstream-docs-to-read">Upstream docs to read<a class="headerlink" href="#upstream-docs-to-read" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://developer.hashicorp.com/terraform/language/backend/s3">Terraform S3 backend</a> — <code>use_lockfile = true</code>, state storage, and locking.</li>
+<li><a href="https://registry.terraform.io/modules/terraform-aws-modules/eks/aws/latest">terraform-aws-modules/eks</a> — module inputs such as access entries, node groups, and KMS settings.</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">Amazon EKS IRSA</a> — how Kubernetes ServiceAccounts assume IAM roles.</li>
+<li><a href="https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services">GitHub OIDC with AWS</a> — short-lived CI credentials without static AWS keys.</li>
+</ul>
 
 
 

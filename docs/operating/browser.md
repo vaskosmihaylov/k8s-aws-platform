@@ -1,6 +1,16 @@
 # Browser Access
 
-What you can click in a browser right now. Argo CD ingress + Grafana ingress aren't yet exposed publicly — until then, port-forward.
+What you can click in a browser right now. Public HTTPS works through Route 53, external-dns,
+cert-manager, ingress-nginx, and the AWS NLB. Port-forwards are still useful for local debugging.
+
+## Public URLs
+
+| URL | What you see | Final check |
+|---|---|---|
+| `https://argocd.k8s.gaiaderma.com` | Argo CD UI | HTTP 200 |
+| `https://grafana.k8s.gaiaderma.com` | Grafana login | HTTP 302 to `/login` |
+| `https://demo-dev.k8s.gaiaderma.com/readyz` | dev app readiness | HTTP 200 |
+| `https://demo.k8s.gaiaderma.com/readyz` | prod app readiness | HTTP 200 |
 
 ## Port-forward URLs
 
@@ -75,7 +85,7 @@ Most useful pages:
 - **Status → Service Discovery** — what Prometheus thinks it should be scraping.
 - **Graph** — eyeball `http_requests_per_second` once demo-api is up. Same metric the HPA reads.
 
-## demo-api (once deployed)
+## demo-api
 
 ```bash
 make port-forward-api
@@ -92,11 +102,19 @@ make port-forward-api
 | `PUT /api/v1/items/{id}` | Update |
 | `DELETE /api/v1/items/{id}` | Delete |
 
-## After Argo CD + external-dns + ingress is fully wired
+## DNS and TLS checks
 
-Per `mem:core`, the planned public hostnames are:
+```bash
+for h in \
+  argocd.k8s.gaiaderma.com \
+  demo-dev.k8s.gaiaderma.com \
+  demo.k8s.gaiaderma.com \
+  grafana.k8s.gaiaderma.com
+do
+  echo "== $h =="
+  dig +short "$h"
+done
+```
 
-- `https://argocd.k8s.gaiaderma.com` — Argo CD UI with TLS from Let's Encrypt
-- `https://grafana.k8s.gaiaderma.com` — Grafana
-
-That's the next milestone after wiring the demo-api repo. Until then, port-forwards above work.
+All four currently resolve to the same ingress NLB address path. The exact IP can change because the
+NLB is AWS-managed; the stable contract is the DNS name.
