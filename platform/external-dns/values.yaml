@@ -1,0 +1,37 @@
+provider:
+  name: aws
+
+sources:
+  - ingress
+
+domainFilters:
+  - gaiaderma.com
+
+registry: txt
+txtOwnerId: k8s-platform-dev
+policy: upsert-only
+extraArgs:
+  aws-zone-type: public
+  prefer-alias: true
+
+serviceAccount:
+  create: true
+  name: external-dns
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::649822034735:role/k8s-platform-dev-external-dns
+
+nodeSelector:
+  node-role: platform
+
+tolerations:
+  - key: node-role
+    value: platform
+    effect: NoSchedule
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

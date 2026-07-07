@@ -5,7 +5,7 @@ region       = "eu-west-1"
 environment  = "dev"
 cluster_name = "k8s-platform-dev"
 
-cluster_endpoint_public_access_cidrs = ["62.73.125.212/32"]
+cluster_endpoint_public_access_cidrs = ["90.154.173.129/32"]
 
 db_username = "dbadmin"
 db_name     = "appdb"
