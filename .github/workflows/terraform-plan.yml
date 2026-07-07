@@ -39,10 +39,10 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ~1.7
+          terraform_version: ~1.15
 
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive ../../terraform
+        run: terraform fmt -check -recursive ../..
 
       - name: Terraform Init
         run: terraform init
