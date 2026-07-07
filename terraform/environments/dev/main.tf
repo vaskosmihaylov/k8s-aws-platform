@@ -264,6 +264,36 @@ resource "aws_iam_role_policy_attachment" "github_actions" {
   policy_arn = aws_iam_policy.github_actions.arn
 }
 
+resource "aws_iam_role" "terraform_github_actions" {
+  name               = "${local.name_prefix}-dev-terraform-github-actions"
+  assume_role_policy = data.aws_iam_policy_document.terraform_github_actions_assume_role.json
+  tags               = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_github_actions_admin" {
+  role       = aws_iam_role.terraform_github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+resource "aws_eks_access_entry" "terraform_github_actions" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_iam_role.terraform_github_actions.arn
+  type          = "STANDARD"
+  tags          = local.common_tags
+}
+
+resource "aws_eks_access_policy_association" "terraform_github_actions_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_iam_role.terraform_github_actions.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.terraform_github_actions]
+}
+
 resource "aws_route53_zone" "main" {
   name = var.route53_zone_name
   tags = local.common_tags

@@ -44,6 +44,11 @@ output "github_actions_role_arn" {
   value       = aws_iam_role.github_actions.arn
 }
 
+output "terraform_github_actions_role_arn" {
+  description = "ARN of the IAM role assumed by Terraform GitHub Actions via OIDC."
+  value       = aws_iam_role.terraform_github_actions.arn
+}
+
 output "cert_manager_role_arn" {
   description = "ARN of the IRSA role for cert-manager."
   value       = module.irsa_cert_manager.role_arn
