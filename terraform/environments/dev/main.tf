@@ -41,7 +41,25 @@ module "eks" {
   control_plane_subnet_ids             = module.vpc.private_subnet_ids
   cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
   kms_key_arn                          = module.kms_eks.key_arn
-  tags                                 = local.common_tags
+  kms_key_administrators = [
+    "arn:aws:iam::649822034735:user/vasko-k8s-platform-admin",
+    aws_iam_role.terraform_github_actions.arn,
+  ]
+  access_entries = {
+    cluster_creator = {
+      principal_arn = "arn:aws:iam::649822034735:user/vasko-k8s-platform-admin"
+      type          = "STANDARD"
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
+  tags = local.common_tags
 }
 
 module "rds" {

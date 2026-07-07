@@ -34,6 +34,31 @@ variable "kms_key_arn" {
   type        = string
 }
 
+variable "kms_key_administrators" {
+  description = "IAM principals that administer the EKS module-managed KMS key."
+  type        = list(string)
+  default     = []
+}
+
+variable "access_entries" {
+  description = "EKS access entries to manage explicitly."
+  type = map(object({
+    kubernetes_groups = optional(list(string))
+    principal_arn     = string
+    type              = optional(string, "STANDARD")
+    user_name         = optional(string)
+    tags              = optional(map(string), {})
+    policy_associations = optional(map(object({
+      policy_arn = string
+      access_scope = object({
+        namespaces = optional(list(string))
+        type       = string
+      })
+    })), {})
+  }))
+  default = {}
+}
+
 variable "tags" {
   description = "Tags applied to all EKS resources."
   type        = map(string)

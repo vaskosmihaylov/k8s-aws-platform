@@ -19,6 +19,7 @@ module "eks" {
     provider_key_arn = var.kms_key_arn
     resources        = ["secrets"]
   }
+  kms_key_administrators = var.kms_key_administrators
 
   cluster_addons = {
     coredns = {
@@ -89,7 +90,10 @@ module "eks" {
     }
   }
 
-  enable_cluster_creator_admin_permissions = true
+  # Keep access entries explicit so local and CI plans do not alternate the
+  # cluster_creator principal based on the caller identity running Terraform.
+  enable_cluster_creator_admin_permissions = false
+  access_entries                           = var.access_entries
 
   tags = var.tags
 }
