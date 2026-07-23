@@ -4,15 +4,19 @@ TF_BOOTSTRAP_DIR := terraform/bootstrap
 TF_ENV_DIR := terraform/environments/dev
 CLUSTER_NAME := k8s-platform-dev
 AWS_REGION := eu-west-1
-MCP_KUBECONFIG := $(HOME)/.kube/mcp-viewer.kubeconfig
+READONLY_KUBECONFIG := $(HOME)/.kube/k8s-platform-dev-viewer.kubeconfig
 
-.PHONY: help bootstrap init plan apply destroy validate kubeconfig \
+.PHONY: help bootstrap init plan apply destroy check validate kubeconfig \
         port-forward-grafana port-forward-argocd port-forward-api \
         load-test verify teardown \
         docs-install docs-serve docs-build
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+check: ## Non-deploying repository validation gate
+	terraform fmt -check -recursive terraform/
+	pre-commit run --all-files
 
 bootstrap: ## Create S3 + DynamoDB state backend (one-time)
 	cd $(TF_BOOTSTRAP_DIR) && terraform init && terraform apply
@@ -31,14 +35,13 @@ destroy: ## Destroy dev environment infrastructure
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
 	cd $(TF_ENV_DIR) && terraform destroy
 
-validate: ## Run all pre-commit hooks
-	pre-commit run --all-files
+validate: check ## Alias for the canonical validation gate
 
-kubeconfig: ## Write dev cluster kubeconfig to $(MCP_KUBECONFIG) for the read-only MCP
+kubeconfig: ## Write an isolated dev kubeconfig for manual read-only access
 	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(AWS_REGION) \
-		--kubeconfig $(MCP_KUBECONFIG)
-	@echo "Kubeconfig written to $(MCP_KUBECONFIG)"
-	@echo "Use: export KUBECONFIG=$(MCP_KUBECONFIG)  (or point kubectl/MCP at this file)"
+		--kubeconfig $(READONLY_KUBECONFIG)
+	@echo "Kubeconfig written to $(READONLY_KUBECONFIG)"
+	@echo "Use: export KUBECONFIG=$(READONLY_KUBECONFIG)"
 
 port-forward-grafana: ## Port-forward Grafana to localhost:3000
 	kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80

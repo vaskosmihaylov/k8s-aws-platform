@@ -25,8 +25,7 @@ kubeconfig
 # MkDocs build output
 .docs-venv/
 
-# AI&MCP
+# Local agent caches and machine state
 .serena/
-.claude/
-CLAUDE.MD
+.claude/settings.local.json
 .claude.json

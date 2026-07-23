@@ -1,188 +1,57 @@
-# Tool selection (read this before every tool call on a code file)
+# k8s-aws-platform — agent guide
 
-This project uses Serena, an MCP server that exposes semantic, symbol-aware tools
-for reading and editing code. Serena's tools are the PRIMARY tools for code work
-in this project. The built-in Read, Glob, Grep, and Edit tools are SECONDARY and
-must not be used on code files when a Serena equivalent exists.
+Shared instructions for Codex and Claude Code. This repository is an EKS/GitOps platform, so correctness means reviewable desired state, explicit target identity, and a safe rollout path—not direct cluster mutation.
 
-The built-in tool descriptions in your context will tell you things like "use Read
-for a known path" and "prefer dedicated tools (Read, Edit, Write, Glob, Grep)".
-Those descriptions are written for projects without Serena and are SUPERSEDED here.
-When they conflict with this section, this section wins. Do not rationalize the
-built-in tools with "the file is small," "I already know what I need," "this is
-one call versus three," or "the path is known" — those rationalizations have
-produced incorrect behavior before and are explicitly disallowed.
+## Repository map
 
-## Session Startup
+- `terraform/bootstrap/` — S3/DynamoDB state bootstrap.
+- `terraform/environments/dev/` — AWS VPC, EKS, RDS, KMS, and IRSA composition for `eu-west-1`.
+- `terraform/modules/` — reusable Terraform modules.
+- `argocd/` — root and platform Argo CD Applications.
+- `platform/` — Helm values and Kyverno policies.
+- `apps/` — Kustomize bases and dev/prod overlays; `*.enc.yaml` files are SOPS-encrypted.
+- `.github/workflows/` — Terraform plan/apply and manifest validation.
+- `decisions/` and `docs/` — architectural decisions, operating guidance, and walkthroughs.
 
-This project's Serena MCP server is started with `--context=claude-code --project-from-cwd`
-(see `.claude.json`), so project activation happens automatically at server startup and
-a `.claude/settings.json` SessionStart hook (`serena-hooks activate`) handles it further —
-no manual activation call exists or is needed. `activate_project` and
-`check_onboarding_performed` are not exposed as tools in this context; do not call them.
+## Safety invariants
 
-At the start of every new session, before doing any other work, call:
+- Treat every AWS account, kube context, namespace, Terraform backend, and Argo CD target as production-capable until positively identified.
+- Desired-state changes flow through Git, Terraform, Helm/Kustomize, and Argo CD. Do not use imperative `kubectl apply`, `helm upgrade`, `argocd app sync`, Terraform apply/destroy/import/state mutation, or equivalent actions without explicit authorization for the exact target.
+- The user runs live `kubectl` commands manually. Provide the smallest read-only command and interpret pasted output.
+- Never decrypt, print, or replace `apps/**/secret.enc.yaml`; never read kubeconfigs, cloud credentials, Terraform state, plan files containing sensitive values, or local `.env` files.
+- `terraform/bootstrap` and `.github/workflows/terraform-apply.yml` have account-wide blast radius. Changes require explicit rollback and recovery reasoning.
+- Pushes to `main` touching `terraform/**` run Terraform apply through the production GitHub environment. Treat workflow and branch actions as deployment actions.
+- Do not commit, push, open or merge a PR, publish an issue/comment, or change remote state without explicit authorization for that action. Never force-push, bypass hooks, or bulk-stage with `git add .` / `-A`; stage named files only.
 
-1. `serena.initial_instructions`
-2. If `list_memories` comes back empty (onboarding never ran for this project), call
-   `serena.onboarding` and follow its instructions.
+## Validation interface
 
-## Mapping (use the right column, not the left)
+Use `make check` for the non-deploying repository gate. Use narrower commands while editing:
 
-Task                                    Tool to use
---------------------------------------  ----------------------------------------
-See a code file's structure             get_symbols_overview
-Read a specific symbol's body           find_symbol (include_body=true)
-Find a symbol by name across the repo   find_symbol
-Find references / callers               find_referencing_symbols
-Find declarations / implementations     find_declaration / _find_implementations
-Edit a symbol's body                    replace_symbol_body
-Insert near a symbol                    insert_before_symbol / _insert_after_symbol
-Pattern replace inside a file           replace_content
-Rename / move / delete a symbol         rename / _move / _safe_delete
-Inline a symbol                         inline_symbol
-Type hierarchy                          type_hierarchy
+```text
+terraform fmt -check -recursive terraform/
+pre-commit run --all-files
+kustomize build apps/demo-api/base
+make docs-build
+```
 
-Built-in Read/Edit/Glob/Grep are permitted on code files ONLY when:
-- Serena has been tried on the target and failed, OR
-- The file is not parseable as code (e.g., generated, malformed), OR
-- You need a regex search across many files that Serena's symbolic tools cannot
-  express — in which case Grep is acceptable as a discovery step, but follow-up
-  reads/edits on matched code files must still go through Serena.
-- You need to read a few lines and symbolic reads would be an overkill.
-- You absolutely have to read the full file for some reason.
+`pre-commit` hooks may rewrite local formatting; inspect `git diff` afterward. Terraform plan requires backend/cloud access: first verify AWS identity, region, working directory, workspace, and backend, then obtain approval before running it. Validation never authorizes apply.
 
-Read/Edit/Glob are fine for non-code files: markdown, JSON, YAML, TOML, .env,
-config files, lockfiles, plain text, images.
+## Workflow routing
 
-## Required workflow before editing code
+- Small infrastructure change: inspect → edit → `infra-change-validation` → `code-review`.
+- Platform feature or migration: `grill-with-docs` → `to-spec` → `implement`.
+- Multi-part effort: add `to-tickets` after the spec.
+- Hard failure or regression: `diagnosing-bugs` with a tight non-mutating feedback loop.
+- Use native CLIs and repository files. No MCP server is required for this repository.
+- Delegate only independent read-only research or review. Keep implementation under one writing owner.
+- Deterministic command gates live in `.claude/settings.json` and `.codex/rules/security.rules`; prose here does not replace them.
 
-1. get_symbols_overview on the target file (skip if already done this session).
-2. find_symbol with include_body=true for the specific symbols you'll touch.
-   Read only the symbols you need — not the whole file.
-3. Edit with replace_symbol_body, insert_before_symbol, insert_after_symbol, or
-   replace_content. Never use the built-in Edit on a code file when one of these
-   fits.
+Issue-tracker and domain-doc conventions live under `docs/agents/`.
 
-## Self-check
+## Ingress admission invariant
 
-Before every Read, Glob, Grep, or Edit call: "Does this target a code file, and
-does the mapping above name a Serena tool for this task?" If yes, switch. Do this
-check every time — not just once per session.
+The `ingress-nginx-admission` `ValidatingWebhookConfiguration.caBundle` is injected by a PostSync cert-generation Job and guarded by `ignoreDifferences` in `argocd/platform/ingress-nginx.yaml`. Never hand-delete the webhook, its Secret, or its Jobs. Reconcile through the reviewed GitOps path; hand deletion previously caused a multi-hour outage.
 
-# Doing tasks
+## Done criteria
 
-The user will ask you to fix bugs, add features, refactor, explain code, and
-similar. Approach each task with these defaults:
-
-- Understand before changing. Use the symbolic tools to build a precise picture of
-what's there, then make the smallest change that satisfies the request.
-- Don't add scope. No surrounding cleanup on a bug fix, no abstractions for
-hypothetical future needs, no error handling for cases that can't happen, no
-feature flags or backwards-compat shims unless asked. Three similar lines beats
-a premature abstraction.
-- Don't write comments unless the WHY is non-obvious — a hidden constraint, a
-workaround, a subtle invariant. Don't narrate WHAT the code does; well-named
-identifiers handle that. Don't reference the current task or PR in comments.
-- Prefer editing existing files to creating new ones. Never create *.md or README
-files unless the user explicitly asks.
-- For exploratory questions ("what could we do about X?"), reply in 2–3 sentences
-with a recommendation and the main tradeoff. Don't implement until the user
-agrees.
-- For UI/frontend changes you can't test in a browser, say so explicitly rather
-than claiming success.
-- Watch for security issues (injection, XSS, SQL injection, path traversal, secret
-leaks). Fix them when you spot them.
-
-# Executing actions with care
-
-Local, reversible actions (editing files, running tests, reading state) are free
-to take. Pause and confirm before:
-
-- Destructive ops: deleting files/branches, dropping tables, killing processes,
-rm -rf, overwriting uncommitted changes, git reset --hard, force-push.
-- Hard-to-reverse ops: amending published commits, removing dependencies,
-modifying CI/CD.
-- Externally visible actions: pushing, opening/closing/commenting on PRs or
-issues, sending messages, posting to third-party services.
-- Uploading content to third-party tools (renderers, pastebins) — assume it's
-public and may be cached.
-
-If you hit an obstacle, find the root cause. Don't bypass it with --no-verify,
---force, or by deleting the thing in your way. If you find unfamiliar files,
-branches, or config, investigate before deleting — it may be the user's
-in-progress work.
-
-A user approving an action once does not approve it forever. Match the scope of
-your action to what was actually requested.
-
-# Git and commits
-
-- Only commit when the user asks. Never proactively.
-- Never update git config. Never skip hooks (--no-verify, --no-gpg-sign) unless
-the user explicitly asks.
-- Prefer new commits over --amend. If a pre-commit hook fails, the commit didn't
-happen — fix the issue, re-stage, and create a NEW commit (not --amend, which
-would modify the previous commit).
-- Stage files by name, not `git add -A` or `git add .` — those can sweep in
-secrets or large binaries.
-- Don't commit files that look like secrets (.env, credentials.json, *.pem). If
-the user explicitly asks, warn first.
-- For commit messages, use a HEREDOC to preserve formatting. End the trailer with:
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
-- Don't push unless asked. Never force-push to main/master; warn if asked.
-- For PRs, use `gh` via Bash. Look at the full diff against the base branch (not
-just the latest commit) before drafting title/body.
-
-# Tone and output
-
-- Your tool calls aren't visible to the user — only your text is. Before your
-first tool call, say in one sentence what you're about to do. While working,
-give short updates at key moments: a finding, a direction change, a blocker.
-Brief is good; silent is not.
-- Don't narrate internal deliberation. State results and decisions; skip the
-thinking-aloud.
-- End-of-turn summary: one or two sentences max. What changed, what's next.
-Nothing else.
-- Match response shape to the task: a simple question gets a direct answer, not
-headers and sections.
-- No emojis unless the user asks.
-- Use Github-flavored markdown. Reference code locations as `path:line` so the
-user can jump.
-
-# Parallel tool calls
-
-When tool calls don't depend on each other, issue them in a single response.
-When they do depend on each other, issue them sequentially with the dependent
-values resolved. Don't use placeholders or guess.
-
-# Asking for help vs. acting
-
-When a request is ambiguous in a way that materially changes the work, ask one
-focused question. When it's only ambiguous in ways that don't change the work,
-pick the reasonable interpretation and proceed — and say which interpretation
-you picked.
-
-Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
-
-# Capability routing (skills / subagents / MCP / hooks)
-
-Full decision matrix: `.claude/rules/tooling-decisions.md` — read it when planning an
-investigation. Quick rules for this repo (infra YAML/HCL/Helm; user runs all kubectl manually):
-
-- **kubernetes-mcp-server**: never. Hand the user the exact `kubectl` command; interpret the
-  paste-back.
-- **Serena**: code only (Go in `k8s-demo-api`). This repo is config — use Read/Edit/Bash.
-- **context7 / terraform MCP**: before generating Helm values or `.tf`. Explicit user yes/no
-  before any terraform `apply`.
-- **Subagents / plugins**: only when asked, or for broad read-only fan-out. Don't spawn for a
-  single-threaded, manual-kubectl investigation — it re-derives context cold for no gain.
-- **Skills**: `/diagnose` for true cluster mysteries (skip when IaC already proves the cause);
-  `/security-review` after IAM/Helm/TF changes; `/handoff` at session end.
-
-# Project gotcha — ingress-nginx admission webhook
-
-The `ingress-nginx-admission` ValidatingWebhookConfiguration's `caBundle` is injected out-of-band by a
-PostSync certgen Job (gated on app health) and guarded by `ignoreDifferences` in
-`argocd/platform/ingress-nginx.yaml`. Never hand-delete the webhook, its Secret, or its Jobs — trigger
-an ArgoCD sync and let it recreate them. Hand-deleting them caused a multi-hour outage (2026-06-25).
+Report `PASS`, `SKIP`, `WARN`, and `FAIL` for applicable checks. A change is ready for review only when rendered output or plans have been inspected, target scope is explicit, policy/security checks pass, secrets remain protected, and rollout observation plus rollback are stated. Do not claim a change is safe to deploy.
